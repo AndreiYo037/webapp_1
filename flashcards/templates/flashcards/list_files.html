@@ -1,0 +1,36 @@
+{% extends 'flashcards/base.html' %}
+
+{% block title %}My Files{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Uploaded Files</h2>
+    <a href="{% url 'index' %}" class="btn">Upload New File</a>
+</div>
+
+{% if files %}
+<div class="card">
+    {% for file in files %}
+    <div style="padding: 20px; margin: 15px 0; border: 1px solid #e9ecef; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h3>📄 {{ file.filename }}</h3>
+                <p style="color: #6c757d;">{{ file.file_type }} • {{ file.uploaded_at|date:"M d, Y H:i" }}</p>
+                {% if file.processed %}
+                <p style="color: #28a745;">✓ Processed</p>
+                {% else %}
+                <p style="color: #ffc107;">⏳ Processing...</p>
+                {% endif %}
+            </div>
+            <a href="{% url 'view_file' file.id %}" class="btn">View Details</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <p>No files uploaded yet. <a href="{% url 'index' %}">Upload your first file</a> to get started!</p>
+</div>
+{% endif %}
+{% endblock %}
+

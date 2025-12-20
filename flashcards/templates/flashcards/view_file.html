@@ -1,0 +1,39 @@
+{% extends 'flashcards/base.html' %}
+
+{% block title %}{{ file_obj.filename }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>{{ file_obj.filename }}</h2>
+    <p><strong>File Type:</strong> {{ file_obj.file_type }}</p>
+    <p><strong>Uploaded:</strong> {{ file_obj.uploaded_at|date:"F d, Y H:i" }}</p>
+    <p><strong>Status:</strong> {% if file_obj.processed %}✓ Processed{% else %}⏳ Processing...{% endif %}</p>
+</div>
+
+{% if file_obj.summary %}
+<div class="card">
+    <h2>Summary</h2>
+    <p style="line-height: 1.8;">{{ file_obj.summary }}</p>
+</div>
+{% endif %}
+
+{% if flashcard_sets %}
+<div class="card">
+    <h2>Flashcard Sets</h2>
+    <div class="grid">
+        {% for set in flashcard_sets %}
+        <div class="card">
+            <h3>{{ set.title }}</h3>
+            <p>{{ set.flashcards.count }} flashcards</p>
+            <a href="{% url 'view_flashcards' set.id %}" class="btn">View Flashcards</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div style="margin-top: 20px;">
+    <a href="{% url 'list_files' %}" class="btn btn-secondary">Back to Files</a>
+</div>
+{% endblock %}
+

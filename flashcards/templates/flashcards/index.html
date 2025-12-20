@@ -1,0 +1,62 @@
+{% extends 'flashcards/base.html' %}
+
+{% block title %}Home - Flashcard App{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Welcome to Flashcard Generator!</h2>
+    <p>Upload any text-based file (PDF, Word, Excel, or plain text) and we'll automatically:</p>
+    <ul style="margin: 20px 0; padding-left: 30px;">
+        <li>Extract and summarize the content</li>
+        <li>Generate interactive flashcards</li>
+        <li>Study with flipable flashcard cards</li>
+    </ul>
+    
+    <div class="upload-area">
+        <h3>📤 Upload Your File</h3>
+        <form method="post" action="{% url 'upload_file' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="file" name="file" accept=".txt,.pdf,.doc,.docx,.xls,.xlsx" required>
+            <br>
+            <button type="submit" class="btn">Generate Flashcards</button>
+        </form>
+        <p style="margin-top: 15px; color: #6c757d;">
+            Supported formats: TXT, PDF, DOC, DOCX, XLS, XLSX
+        </p>
+    </div>
+</div>
+
+{% if recent_sets %}
+<div class="card">
+    <h2>Recent Flashcard Sets</h2>
+    <div class="grid">
+        {% for set in recent_sets %}
+        <div class="card">
+            <h3>{{ set.title }}</h3>
+            <p>{{ set.flashcards.count }} flashcards</p>
+            <a href="{% url 'view_flashcards' set.id %}" class="btn">View Flashcards</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if recent_files %}
+<div class="card">
+    <h2>Recent Files</h2>
+    <ul style="list-style: none;">
+        {% for file in recent_files %}
+        <li style="padding: 10px; border-bottom: 1px solid #e9ecef;">
+            <a href="{% url 'view_file' file.id %}" style="text-decoration: none; color: #667eea;">
+                📄 {{ file.filename }}
+            </a>
+            <span style="color: #6c757d; float: right;">
+                {{ file.uploaded_at|date:"M d, Y" }}
+            </span>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+{% endblock %}
+

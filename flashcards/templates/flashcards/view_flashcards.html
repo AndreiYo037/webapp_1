@@ -1,0 +1,57 @@
+{% extends 'flashcards/base.html' %}
+
+{% block title %}{{ flashcard_set.title }} - Flashcards{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>{{ flashcard_set.title }}</h2>
+    <p>Total flashcards: {{ flashcards.count }}</p>
+    <a href="{% url 'list_sets' %}" class="btn btn-secondary">Back to Sets</a>
+</div>
+
+<div class="card">
+    <h2>Flashcards</h2>
+    <div id="flashcard-container">
+        {% for flashcard in flashcards %}
+        <div class="flashcard" id="flashcard-{{ flashcard.id }}">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div>
+                        <h3>Question {{ forloop.counter }}</h3>
+                        <p style="font-size: 1.2em; margin-top: 20px;">{{ flashcard.question }}</p>
+                    </div>
+                </div>
+                <div class="flashcard-back">
+                    <div>
+                        <h3>Answer</h3>
+                        <p style="font-size: 1.1em; margin-top: 20px;">{{ flashcard.answer }}</p>
+                    </div>
+                </div>
+            </div>
+            <button onclick="flipCard({{ flashcard.id }})" class="btn" style="margin-top: 15px; width: 100%;">
+                Flip Card
+            </button>
+        </div>
+        {% empty %}
+        <p>No flashcards available.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function flipCard(id) {
+    const card = document.getElementById('flashcard-' + id);
+    card.classList.toggle('flipped');
+}
+</script>
+
+<style>
+#flashcard-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 30px;
+    margin-top: 20px;
+}
+</style>
+{% endblock %}
+
