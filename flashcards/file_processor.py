@@ -331,15 +331,47 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
         # Parse JSON
         flashcards = json.loads(content)
         
-        # Validate and format
+        # Validate and format - filter out simple/short flashcards
         if isinstance(flashcards, list):
             formatted_flashcards = []
             for card in flashcards:
                 if isinstance(card, dict) and 'question' in card and 'answer' in card:
+                    question = str(card['question']).strip()
+                    answer = str(card['answer']).strip()
+                    
+                    # Filter out simple flashcards
+                    # Skip if answer is too short (less than 50 characters)
+                    if len(answer) < 50:
+                        print(f"[FILTER] Skipping flashcard - answer too short: {question[:50]}...")
+                        continue
+                    
+                    # Skip if answer has too few words
+                    answer_words = answer.split()
+                    if len(answer_words) < 10:
+                        print(f"[FILTER] Skipping flashcard - answer too simple ({len(answer_words)} words): {question[:50]}...")
+                        continue
+                    
+                    # Skip if question is too simple (just "What is X?" or "Define X") with short answer
+                    question_lower = question.lower()
+                    if (question_lower.startswith('what is ') and len(question.split()) < 5) or \
+                       (question_lower.startswith('define ') and len(question.split()) < 4):
+                        # Check if answer is also too short/simple
+                        if len(answer_words) < 15:
+                            print(f"[FILTER] Skipping flashcard - too simple question/answer: {question[:50]}...")
+                            continue
+                    
                     formatted_flashcards.append({
-                        'question': str(card['question']).strip(),
-                        'answer': str(card['answer']).strip()
+                        'question': question,
+                        'answer': answer
                     })
+            
+            # If we filtered out too many, warn but still return what we have
+            if len(formatted_flashcards) < num_flashcards * 0.5:  # Less than 50% passed
+                print(f"[WARNING] Only {len(formatted_flashcards)}/{num_flashcards} flashcards passed quality filter")
+                if len(formatted_flashcards) == 0:
+                    return None  # None passed, fall back to rule-based
+            
+            print(f"[SUCCESS] {len(formatted_flashcards)} comprehensive flashcards generated after filtering")
             return formatted_flashcards if formatted_flashcards else None
         
         return None
