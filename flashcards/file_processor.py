@@ -356,8 +356,61 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
         if start_idx != -1 and end_idx > start_idx:
             content = content[start_idx:end_idx]
         
-        # Parse JSON
-        flashcards = json.loads(content)
+        # Try to fix common JSON issues (unterminated strings, incomplete arrays)
+        # If JSON parsing fails, try to extract valid flashcards from partial JSON
+        flashcards = None
+        try:
+            flashcards = json.loads(content)
+        except json.JSONDecodeError as json_error:
+            print(f"[WARNING] Initial JSON parse failed: {str(json_error)}")
+            print("[INFO] Attempting to fix malformed JSON...")
+            
+            # Try to fix unterminated strings by finding the last complete flashcard
+            # Look for complete flashcard objects (ending with } or },)
+            try:
+                # Find all complete flashcard objects
+                import re
+                # Pattern to match complete flashcard objects
+                pattern = r'\{"question"\s*:\s*"([^"]*(?:\\.[^"]*)*)"\s*,\s*"answer"\s*:\s*"([^"]*(?:\\.[^"]*)*)"\s*\}'
+                matches = re.findall(pattern, content)
+                
+                if matches:
+                    flashcards = []
+                    for question, answer in matches:
+                        # Unescape JSON strings
+                        question = question.replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
+                        answer = answer.replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
+                        flashcards.append({'question': question, 'answer': answer})
+                    print(f"[INFO] Extracted {len(flashcards)} flashcards from malformed JSON")
+                else:
+                    # Try to find complete objects by looking for balanced braces
+                    brace_count = 0
+                    last_valid_pos = 0
+                    for i, char in enumerate(content):
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                last_valid_pos = i + 1
+                    
+                    if last_valid_pos > 0:
+                        # Try parsing up to the last valid position
+                        partial_content = content[:last_valid_pos]
+                        # Ensure it's a valid array
+                        if partial_content.startswith('[') and not partial_content.rstrip().endswith(']'):
+                            partial_content = '[' + partial_content + ']'
+                        try:
+                            flashcards = json.loads(partial_content)
+                            print(f"[INFO] Parsed partial JSON (up to position {last_valid_pos})")
+                        except:
+                            pass
+            except Exception as fix_error:
+                print(f"[WARNING] JSON fix attempt failed: {str(fix_error)}")
+            
+            # If still no flashcards, raise the original error
+            if not flashcards:
+                raise json_error
         
         # Validate and format - filter out simple/short flashcards
         if isinstance(flashcards, list):
@@ -451,20 +504,38 @@ def generate_flashcards_with_gemini(text, num_flashcards=10):
     Works on all cloud platforms - great alternative to Groq!
     """
     try:
-        import google.generativeai as genai
+        # Try new google.genai package first, fallback to deprecated google.generativeai
+        try:
+            import google.genai as genai
+            use_new_api = True
+            print("[INFO] Using new google.genai package")
+        except ImportError:
+            try:
+                import google.generativeai as genai
+                use_new_api = False
+                print("[WARNING] Using deprecated google.generativeai package. Consider updating to google.genai")
+            except ImportError:
+                print("[ERROR] Google Generative AI library not installed. Install with: pip install google-genai")
+                return None
         
         # Check if API key is configured
         api_key = getattr(settings, 'GEMINI_API_KEY', '')
-        if not api_key:
+        if not api_key or not isinstance(api_key, str) or api_key.strip() == '':
             print("[WARNING] Gemini API key not found - falling back to other methods")
             return None
         
         model_name = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
         print(f"[INFO] Using Gemini LLM: {model_name} for flashcard generation")
         
-        # Configure Gemini
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name)
+        # Configure Gemini based on API version
+        if use_new_api:
+            # New API (google.genai)
+            client = genai.Client(api_key=api_key)
+            model = client.models.get(model_name)
+        else:
+            # Old API (google.generativeai) - deprecated
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(model_name)
         
         # Truncate text if too long
         max_chars = 8000  # Leave room for prompt
@@ -498,17 +569,35 @@ EXAMPLES OF WHAT NOT TO CREATE (REJECT THESE):
 
 Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JSON array."""
         
-        # Generate with Gemini
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.9,
-                max_output_tokens=4000,
+        # Generate with Gemini (handle both new and old API)
+        if use_new_api:
+            # New API (google.genai)
+            response = model.generate_content(
+                prompt,
+                config={
+                    'temperature': 0.9,
+                    'max_output_tokens': 4000,
+                }
             )
-        )
-        
-        # Extract content
-        content = response.text.strip()
+            content = response.text.strip()
+        else:
+            # Old API (google.generativeai) - deprecated
+            try:
+                response = model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.9,
+                        max_output_tokens=4000,
+                    )
+                )
+                content = response.text.strip()
+            except Exception as old_api_error:
+                error_str = str(old_api_error).lower()
+                if '404' in error_str or 'not found' in error_str or 'not supported' in error_str:
+                    print(f"[ERROR] Gemini model '{model_name}' not found with old API. The google.generativeai package is deprecated.")
+                    print("[INFO] Please install google-genai package: pip install google-genai")
+                    print("[INFO] Or use a different model name that works with the old API.")
+                raise old_api_error
         
         # Remove markdown code blocks if present
         if content.startswith('```'):
