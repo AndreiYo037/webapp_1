@@ -23,17 +23,35 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-producti
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 # ALLOWED_HOSTS configuration
+# This is critical for deployment - must include your domain!
 allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '').strip()
-if allowed_hosts_env:
+allow_all_hosts = os.getenv('ALLOW_ALL_HOSTS', 'False').lower() == 'true'
+
+if allow_all_hosts:
+    # Allow all hosts (useful for testing/deployment)
+    ALLOWED_HOSTS = ['*']
+elif allowed_hosts_env:
     # Split by comma and strip whitespace, filter out empty strings
     ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
+    # If '*' is in the list, allow all hosts
+    if '*' in ALLOWED_HOSTS:
+        ALLOWED_HOSTS = ['*']
 else:
     # Default to localhost for development
+    # In production, this will cause 400 errors if domain not set!
     ALLOWED_HOSTS = ['localhost', '127.0.0.1']
     
-# For production deployments, allow all hosts if '*' is specified
-if '*' in ALLOWED_HOSTS or os.getenv('ALLOW_ALL_HOSTS', 'False').lower() == 'true':
-    ALLOWED_HOSTS = ['*']
+    # If DEBUG is False and we're in production, warn but allow all for safety
+    if not DEBUG:
+        # In production without ALLOWED_HOSTS set, allow all to prevent 400 errors
+        # This is less secure but better than a broken app
+        ALLOWED_HOSTS = ['*']
+        import warnings
+        warnings.warn(
+            "ALLOWED_HOSTS not set in production! Allowing all hosts. "
+            "Set ALLOWED_HOSTS environment variable for security.",
+            UserWarning
+        )
 
 
 # Application definition
@@ -138,9 +156,23 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Security settings for production
 if not DEBUG:
+    # Security settings for production
+    # Note: Some platforms (Railway, Render) handle SSL at the proxy level
     SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False').lower() == 'true'
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    
+    # Cookie security - only enable if using HTTPS
+    # Disable for now to avoid issues with platforms that use HTTP internally
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
+    CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False').lower() == 'true'
+    
+    # CSRF trusted origins - important for deployment!
+    csrf_trusted_origins_env = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+    if csrf_trusted_origins_env:
+        CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_trusted_origins_env.split(',') if origin.strip()]
+    else:
+        # Auto-detect from ALLOWED_HOSTS if not set
+        CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ALLOWED_HOSTS if host != '*']
+    
     SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
