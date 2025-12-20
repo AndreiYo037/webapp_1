@@ -4,8 +4,32 @@ File processing utilities to extract text from various file types
 import os
 import json
 import requests
+import sys
 from pathlib import Path
 from django.conf import settings
+
+# Fix Windows console encoding for Unicode characters
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except (AttributeError, ValueError):
+        # Python < 3.7 or already configured
+        pass
+
+def safe_str(obj):
+    """Safely convert object to string, handling Unicode encoding issues"""
+    try:
+        s = str(obj)
+        # Test if it can be encoded safely
+        s.encode('utf-8', errors='strict')
+        return s
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        # Fallback: replace problematic characters
+        try:
+            return str(obj).encode('utf-8', errors='replace').decode('utf-8', errors='replace')
+        except:
+            return "Unable to encode text (encoding issue)"
 
 
 def extract_text_from_file(file_path, file_type):
@@ -61,7 +85,9 @@ def extract_text_from_file(file_path, file_type):
                 text = f"Unsupported file type: {file_type}"
     
     except Exception as e:
-        text = f"Error processing file: {str(e)}"
+        # Safely handle encoding errors
+        error_msg = safe_str(e)
+        text = f"Error processing file: {error_msg}"
     
     return text
 
@@ -249,14 +275,16 @@ def generate_flashcards_with_groq(text, num_flashcards=10):
     try:
         from openai import OpenAI
         
-        # Check if API key is configured
+        # Check if API key is configured (validate it's not empty/whitespace)
         api_key = getattr(settings, 'GROQ_API_KEY', '')
-        if not api_key:
-            print("[WARNING] Groq API key not found - falling back to rule-based generation")
+        if not api_key or not isinstance(api_key, str) or api_key.strip() == '':
+            print("[WARNING] Groq API key not found or empty - falling back to rule-based generation")
+            print(f"[DEBUG] API key type: {type(api_key)}, length: {len(str(api_key)) if api_key else 0}")
             return None
         
         model = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
         print(f"[INFO] Using Groq LLM: {model} for flashcard generation")
+        print(f"[DEBUG] API key present: {bool(api_key)}, starts with 'gsk_': {api_key.startswith('gsk_') if api_key else False}")
         
         # Create Groq client (OpenAI-compatible API)
         client = OpenAI(
@@ -559,6 +587,14 @@ def generate_flashcards_with_llm(text, num_flashcards=10):
     """
     provider = getattr(settings, 'LLM_PROVIDER', 'groq').lower()
     debug_mode = getattr(settings, 'DEBUG', False)
+    use_llm = getattr(settings, 'USE_LLM', True)
+    
+    print(f"[DEBUG] LLM Configuration - Provider: {provider}, USE_LLM: {use_llm}, DEBUG: {debug_mode}")
+    
+    # Check if LLM is enabled
+    if not use_llm:
+        print("[WARNING] USE_LLM is False - skipping LLM generation")
+        return None
     
     # In production/cloud, NEVER use Ollama - force cloud LLMs
     if not debug_mode and provider == 'ollama':
@@ -574,7 +610,7 @@ def generate_flashcards_with_llm(text, num_flashcards=10):
             print(f"[SUCCESS] Generated {len(groq_result)} flashcards using Groq!")
             return groq_result
         else:
-            print("[WARNING] Groq generation failed - trying Gemini...")
+            print("[WARNING] Groq generation failed - trying Gemini as fallback...")
     
     if provider == 'gemini':
         print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Gemini (cloud LLM)...")
@@ -621,7 +657,7 @@ def generate_flashcards_with_llm(text, num_flashcards=10):
                 return gemini_result
     
     # No LLM available or failed
-    print("ℹ️ Using rule-based flashcard generation (no LLM)")
+    print("[INFO] Using rule-based flashcard generation (no LLM)")
     return None
 
 
