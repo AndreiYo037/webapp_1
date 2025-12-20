@@ -269,39 +269,45 @@ def generate_flashcards_with_groq(text, num_flashcards=10):
         if len(text) > max_chars:
             text = text[:max_chars] + "..."
 
-        prompt = f"""Generate {num_flashcards} high-quality, comprehensive educational flashcards from the following text.
+        prompt = f"""You are creating {num_flashcards} educational flashcards. These MUST be comprehensive and test deep understanding.
 
-CRITICAL REQUIREMENTS:
-- Create flashcards that test UNDERSTANDING and CONCEPTS, not just single words or definitions
-- Questions must require thoughtful, detailed answers (at least 2-3 sentences minimum)
-- Focus on: relationships, processes, explanations, comparisons, applications, and cause-effect
-- Avoid trivial questions that only test vocabulary or single-word facts
-- Each question should help the learner understand the material deeply, not just memorize terms
+STRICT REQUIREMENTS - FOLLOW THESE EXACTLY:
+1. Each answer MUST be at least 50 words (approximately 3-5 sentences)
+2. Questions MUST test understanding, not vocabulary - use "How", "Why", "Explain", "Compare", "Analyze", "What are the differences"
+3. NEVER create simple "What is X?" questions with one-word answers
+4. Focus on: processes, relationships, comparisons, applications, mechanisms, cause-effect
+5. Each flashcard should require the learner to explain concepts, not just recall terms
 
 Text content:
 {text}
 
-Generate exactly {num_flashcards} comprehensive flashcards in JSON format. Each flashcard must have "question" and "answer" fields.
+Generate exactly {num_flashcards} flashcards in JSON format with "question" and "answer" fields.
 
-GOOD examples (use these as inspiration):
-- {{"question": "How does photosynthesis convert light energy into chemical energy, and what are the key steps?", "answer": "Photosynthesis converts light energy into chemical energy through two main stages. In the light-dependent reactions, chlorophyll captures light energy which splits water molecules, releasing oxygen and creating ATP and NADPH. In the light-independent reactions (Calvin cycle), these energy carriers are used to combine carbon dioxide into glucose, storing the chemical energy in the glucose molecules."}}
-- {{"question": "What are the key differences between mitosis and meiosis, and when is each process used?", "answer": "Mitosis produces two identical diploid cells and is used for growth, repair, and asexual reproduction. Meiosis produces four genetically diverse haploid gametes for sexual reproduction. Key differences: meiosis involves two divisions (meiosis I and II) while mitosis has one; meiosis includes crossing over and independent assortment creating genetic variation; mitosis maintains chromosome number while meiosis halves it."}}
+REQUIRED FORMAT - Each answer must be comprehensive:
+- Question types to use: "How does...", "Explain why...", "What are the key differences between...", "Compare and contrast...", "Describe the process of...", "Analyze the relationship between..."
+- Answers must be detailed explanations (50+ words minimum)
 
-BAD examples (DO NOT create these - they are too simple):
-- {{"question": "What is photosynthesis?", "answer": "A process."}}  (too vague, one-word answer)
-- {{"question": "Define mitosis.", "answer": "Cell division."}}  (one-word answer, no understanding)
+EXAMPLES OF WHAT TO CREATE:
+{{"question": "How does the process of cellular respiration convert glucose into ATP, and what are the main stages involved?", "answer": "Cellular respiration converts glucose into ATP through three main stages: glycolysis, the Krebs cycle, and the electron transport chain. In glycolysis, glucose is broken down in the cytoplasm to produce pyruvate and a small amount of ATP. The pyruvate then enters the mitochondria where it's converted to acetyl-CoA for the Krebs cycle, which produces NADH and FADH2. Finally, the electron transport chain uses these electron carriers to create a proton gradient that drives ATP synthesis through chemiosmosis, producing the majority of ATP."}}
 
-Generate comprehensive flashcards that test deep understanding. Return ONLY the JSON array, no additional text."""
+{{"question": "What are the key differences between DNA and RNA in terms of structure, function, and location within the cell?", "answer": "DNA and RNA differ in several critical ways. Structurally, DNA is double-stranded with deoxyribose sugar and thymine bases, while RNA is single-stranded with ribose sugar and uracil instead of thymine. Functionally, DNA stores genetic information long-term in the nucleus, while RNA acts as a messenger (mRNA), transfers amino acids (tRNA), and forms ribosomes (rRNA). Location-wise, DNA remains primarily in the nucleus, while RNA is synthesized in the nucleus but functions in both the nucleus and cytoplasm. These differences enable DNA to serve as the stable genetic blueprint while RNA facilitates protein synthesis."}}
+
+EXAMPLES OF WHAT NOT TO CREATE (REJECT THESE):
+- {{"question": "What is DNA?", "answer": "Genetic material."}}  ❌ TOO SIMPLE
+- {{"question": "Define respiration.", "answer": "A process."}}  ❌ TOO SIMPLE  
+- {{"question": "What is ATP?", "answer": "Energy molecule."}}  ❌ TOO SIMPLE
+
+Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JSON array."""
 
         try:
             response = client.chat.completions.create(
                 model=model,
             messages=[
-                {"role": "system", "content": "You are an expert educational content creator specializing in comprehensive learning. Your flashcards test deep understanding, concepts, relationships, and applications - not just vocabulary or single-word facts. Always create meaningful questions that require thoughtful, detailed answers. Always return valid JSON."},
+                {"role": "system", "content": "You are an expert educational content creator. You ONLY create comprehensive flashcards that test deep understanding. You NEVER create simple vocabulary tests or one-word answer questions. Every answer must be at least 50 words explaining concepts, processes, or relationships. You always return valid JSON."},
                 {"role": "user", "content": prompt}
             ],
-                temperature=0.8,  # Slightly higher for more creative, comprehensive questions
-                max_tokens=3000  # Increased to allow for more detailed answers
+                temperature=0.9,  # Higher temperature for more creative, comprehensive questions
+                max_tokens=4000  # Increased further to allow for very detailed answers
             )
         except Exception as api_error:
             # Re-raise to be caught by outer exception handler with better context
