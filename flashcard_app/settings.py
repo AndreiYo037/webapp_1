@@ -155,6 +155,25 @@ MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Security settings for production
+# CSRF trusted origins - important for deployment!
+# Set this to your actual domain
+csrf_trusted_origins_env = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+if csrf_trusted_origins_env:
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_trusted_origins_env.split(',') if origin.strip()]
+else:
+    # Auto-detect from ALLOWED_HOSTS if not set
+    if ALLOWED_HOSTS == ['*']:
+        # If allowing all hosts, trust all HTTPS origins
+        CSRF_TRUSTED_ORIGINS = ['https://*']
+    else:
+        # Build from ALLOWED_HOSTS
+        CSRF_TRUSTED_ORIGINS = []
+        for host in ALLOWED_HOSTS:
+            if host and host != '*':
+                # Add both http and https for flexibility
+                CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
+                CSRF_TRUSTED_ORIGINS.append(f"http://{host}")
+
 if not DEBUG:
     # Security settings for production
     # Note: Some platforms (Railway, Render) handle SSL at the proxy level
@@ -164,14 +183,6 @@ if not DEBUG:
     # Disable for now to avoid issues with platforms that use HTTP internally
     SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
     CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False').lower() == 'true'
-    
-    # CSRF trusted origins - important for deployment!
-    csrf_trusted_origins_env = os.getenv('CSRF_TRUSTED_ORIGINS', '')
-    if csrf_trusted_origins_env:
-        CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_trusted_origins_env.split(',') if origin.strip()]
-    else:
-        # Auto-detect from ALLOWED_HOSTS if not set
-        CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ALLOWED_HOSTS if host != '*']
     
     SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
