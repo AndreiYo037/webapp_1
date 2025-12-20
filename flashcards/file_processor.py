@@ -297,41 +297,41 @@ def generate_flashcards_with_groq(text, num_flashcards=10):
         if len(text) > max_chars:
             text = text[:max_chars] + "..."
 
-        prompt = f"""You are creating {num_flashcards} educational flashcards. These MUST be comprehensive and test deep understanding.
+        prompt = f"""You are creating {num_flashcards} educational flashcards with CONCISE answers containing key points.
 
 STRICT REQUIREMENTS - FOLLOW THESE EXACTLY:
-1. Each answer MUST be at least 50 words (approximately 3-5 sentences)
-2. Questions MUST test understanding, not vocabulary - use "How", "Why", "Explain", "Compare", "Analyze", "What are the differences"
+1. Each answer MUST be CONCISE (up to 150 words maximum) - summarize key points clearly
+2. Questions MUST test understanding - use "How", "Why", "Explain", "Compare", "What are the key differences"
 3. NEVER create simple "What is X?" questions with one-word answers
-4. Focus on: processes, relationships, comparisons, applications, mechanisms, cause-effect
-5. Each flashcard should require the learner to explain concepts, not just recall terms
+4. Focus on: key processes, main differences, essential relationships, critical applications
+5. Answers should be brief but informative - cover main concepts without excessive detail
 
 Text content:
 {text}
 
 Generate exactly {num_flashcards} flashcards in JSON format with "question" and "answer" fields.
 
-REQUIRED FORMAT - Each answer must be comprehensive:
-- Question types to use: "How does...", "Explain why...", "What are the key differences between...", "Compare and contrast...", "Describe the process of...", "Analyze the relationship between..."
-- Answers must be detailed explanations (50+ words minimum)
+REQUIRED FORMAT - Answers must be CONCISE and summarized:
+- Question types: "How does...", "Explain why...", "What are the key differences...", "Compare...", "What are the main steps..."
+- Answers: Concise summaries with key points (up to 150 words, NOT lengthy explanations)
 
 EXAMPLES OF WHAT TO CREATE:
-{{"question": "How does the process of cellular respiration convert glucose into ATP, and what are the main stages involved?", "answer": "Cellular respiration converts glucose into ATP through three main stages: glycolysis, the Krebs cycle, and the electron transport chain. In glycolysis, glucose is broken down in the cytoplasm to produce pyruvate and a small amount of ATP. The pyruvate then enters the mitochondria where it's converted to acetyl-CoA for the Krebs cycle, which produces NADH and FADH2. Finally, the electron transport chain uses these electron carriers to create a proton gradient that drives ATP synthesis through chemiosmosis, producing the majority of ATP."}}
+{{"question": "How does cellular respiration convert glucose into ATP?", "answer": "Cellular respiration converts glucose into ATP through three stages. Glycolysis breaks down glucose in the cytoplasm, producing pyruvate and some ATP. Pyruvate enters mitochondria for the Krebs cycle, producing NADH and FADH2. The electron transport chain uses these carriers to create a proton gradient, driving ATP synthesis via chemiosmosis. This produces most of the cell's ATP."}}
 
-{{"question": "What are the key differences between DNA and RNA in terms of structure, function, and location within the cell?", "answer": "DNA and RNA differ in several critical ways. Structurally, DNA is double-stranded with deoxyribose sugar and thymine bases, while RNA is single-stranded with ribose sugar and uracil instead of thymine. Functionally, DNA stores genetic information long-term in the nucleus, while RNA acts as a messenger (mRNA), transfers amino acids (tRNA), and forms ribosomes (rRNA). Location-wise, DNA remains primarily in the nucleus, while RNA is synthesized in the nucleus but functions in both the nucleus and cytoplasm. These differences enable DNA to serve as the stable genetic blueprint while RNA facilitates protein synthesis."}}
+{{"question": "What are the key differences between DNA and RNA?", "answer": "DNA is double-stranded with deoxyribose and thymine, storing genetic info in the nucleus. RNA is single-stranded with ribose and uracil, functioning as mRNA, tRNA, and rRNA for protein synthesis. DNA serves as the stable genetic blueprint, while RNA actively facilitates protein synthesis in both nucleus and cytoplasm."}}
 
 EXAMPLES OF WHAT NOT TO CREATE (REJECT THESE):
 - {{"question": "What is DNA?", "answer": "Genetic material."}}  ❌ TOO SIMPLE
 - {{"question": "Define respiration.", "answer": "A process."}}  ❌ TOO SIMPLE  
-- {{"question": "What is ATP?", "answer": "Energy molecule."}}  ❌ TOO SIMPLE
+- Long answers over 150 words  ❌ TOO LENGTHY
 
-Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JSON array."""
+Generate ONLY concise flashcards with summarized answers (up to 150 words). Return ONLY the JSON array."""
 
         try:
             response = client.chat.completions.create(
                 model=model,
             messages=[
-                {"role": "system", "content": "You are an expert educational content creator. You create flashcards with detailed answers (up to 250 words) containing key points and explanations. You NEVER create simple vocabulary tests or one-word answers. Answers should be comprehensive but focused. You always return valid JSON."},
+                {"role": "system", "content": "You are an expert educational content creator. You create CONCISE flashcards with summarized answers (up to 150 words) containing key points. You NEVER create simple vocabulary tests or one-word answers. Answers should be concise but informative. You always return valid JSON."},
                 {"role": "user", "content": prompt}
             ],
                 temperature=0.9,  # Higher temperature for more creative, comprehensive questions
@@ -477,9 +477,9 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
                         print(f"[FILTER] Skipping flashcard - answer too simple ({len(answer_words)} words): {question[:50]}...")
                         continue
                     
-                    # Skip if answer is too long (over 250 words)
-                    if len(answer_words) > 250:
-                        print(f"[FILTER] Skipping flashcard - answer too lengthy ({len(answer_words)} words, max 250): {question[:50]}...")
+                    # Skip if answer is too long (over 150 words - should be concise!)
+                    if len(answer_words) > 150:
+                        print(f"[FILTER] Skipping flashcard - answer too lengthy ({len(answer_words)} words, max 150): {question[:50]}...")
                         continue
                     
                     # Skip if question is too simple (just "What is X?" or "Define X") with very short answer
@@ -711,9 +711,9 @@ Generate ONLY comprehensive flashcards with detailed answers (up to 250 words). 
                         print(f"[FILTER] Skipping flashcard - answer too simple ({len(answer_words)} words): {question[:50]}...")
                         continue
                     
-                    # Skip if answer is too long (over 250 words)
-                    if len(answer_words) > 250:
-                        print(f"[FILTER] Skipping flashcard - answer too lengthy ({len(answer_words)} words, max 250): {question[:50]}...")
+                    # Skip if answer is too long (over 150 words - should be concise!)
+                    if len(answer_words) > 150:
+                        print(f"[FILTER] Skipping flashcard - answer too lengthy ({len(answer_words)} words, max 150): {question[:50]}...")
                         continue
                     
                     # Skip if question is too simple (just "What is X?" or "Define X") with very short answer
