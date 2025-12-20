@@ -567,7 +567,7 @@ def generate_flashcards_with_gemini(text, num_flashcards=10):
             print("[WARNING] Gemini API key not found - falling back to other methods")
             return None
         
-        model_name = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
+        model_name = getattr(settings, 'GEMINI_MODEL', 'gemini-pro')
         print(f"[INFO] Using Gemini LLM: {model_name} for flashcard generation")
         
         # Configure Gemini - use old API for now (new API has compatibility issues)

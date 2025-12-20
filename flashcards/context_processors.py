@@ -65,7 +65,7 @@ def llm_info(request):
         llm_icon = "📝"
     elif provider == 'gemini':
         api_key = getattr(settings, 'GEMINI_API_KEY', '')
-        model = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
+        model = getattr(settings, 'GEMINI_MODEL', 'gemini-pro')
         if is_valid_api_key(api_key) and use_llm:
             llm_name = f"Gemini ({model})"
             llm_status = "active"
@@ -90,7 +90,7 @@ def llm_info(request):
                 llm_description = f"Ollama configured but using Groq (cloud LLM) in production"
                 llm_icon = "🚀"
             elif is_valid_api_key(gemini_key) and use_llm:
-                model = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
+                model = getattr(settings, 'GEMINI_MODEL', 'gemini-pro')
                 llm_name = f"Gemini ({model}) - Auto-selected"
                 llm_status = "active"
                 llm_description = f"Ollama configured but using Gemini (cloud LLM) in production"

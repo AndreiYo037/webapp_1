@@ -219,7 +219,7 @@ GROQ_MODEL = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')  # Options: llam
 
 # Gemini Configuration (Free, Cloud-Based - Google AI)
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')  # Options: gemini-1.5-flash (fast, free), gemini-1.5-pro (more capable)
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-pro')  # Options: gemini-pro (works with deprecated API), gemini-1.5-pro (if available)
 
 # Ollama Configuration (Free & Local - Only works if Ollama is installed)
 OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
