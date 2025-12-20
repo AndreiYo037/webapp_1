@@ -415,18 +415,22 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
     except Exception as e:
         # Check for specific Groq API errors
         error_str = str(e).lower()
+        error_type = type(e).__name__
+        
+        print(f"[ERROR] Groq API call failed - Type: {error_type}, Error: {str(e)}")
         
         # Quota/rate limit errors
         if 'quota' in error_str or 'rate limit' in error_str or '429' in error_str:
             print(f"[ERROR] Groq quota/rate limit exceeded: {str(e)}")
             print("[INFO] You may have run out of free tier tokens. Check your Groq dashboard.")
         # Authentication errors
-        elif '401' in error_str or 'unauthorized' in error_str or 'invalid' in error_str and 'key' in error_str:
+        elif '401' in error_str or 'unauthorized' in error_str or ('invalid' in error_str and 'key' in error_str):
             print(f"[ERROR] Groq API key invalid or unauthorized: {str(e)}")
             print("[INFO] Check your GROQ_API_KEY environment variable.")
+            print(f"[DEBUG] API key starts with 'gsk_': {api_key.startswith('gsk_') if api_key else 'N/A'}")
         # Model errors
-        elif 'model' in error_str and ('not found' in error_str or 'invalid' in error_str):
-            print(f"[ERROR] Groq model not available: {str(e)}")
+        elif 'model' in error_str and ('not found' in error_str or 'invalid' in error_str or 'unavailable' in error_str):
+            print(f"[ERROR] Groq model '{model}' not available: {str(e)}")
             print("[INFO] The specified model may not be available. Check GROQ_MODEL setting.")
         # Network errors
         elif 'connection' in error_str or 'timeout' in error_str or 'network' in error_str:
@@ -434,7 +438,8 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
             print("[INFO] Check your internet connection or Groq API status.")
         # Generic error
         else:
-            print(f"[ERROR] Groq generation error: {str(e)}")
+            print(f"[ERROR] Groq generation error (unexpected): {str(e)}")
+            print(f"[DEBUG] Full error details: {repr(e)}")
         
         print("[INFO] Falling back to rule-based flashcard generation.")
         return None
