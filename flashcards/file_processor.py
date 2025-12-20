@@ -365,46 +365,91 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
             print(f"[WARNING] Initial JSON parse failed: {str(json_error)}")
             print("[INFO] Attempting to fix malformed JSON...")
             
-            # Try to fix unterminated strings by finding the last complete flashcard
-            # Look for complete flashcard objects (ending with } or },)
+            # Try multiple strategies to recover valid flashcards from malformed JSON
             try:
-                # Find all complete flashcard objects
                 import re
-                # Pattern to match complete flashcard objects
-                pattern = r'\{"question"\s*:\s*"([^"]*(?:\\.[^"]*)*)"\s*,\s*"answer"\s*:\s*"([^"]*(?:\\.[^"]*)*)"\s*\}'
+                
+                # Strategy 1: Find complete flashcard objects using regex (handles escaped quotes)
+                pattern = r'\{"question"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"answer"\s*:\s*"((?:[^"\\]|\\.)*)"\s*\}'
                 matches = re.findall(pattern, content)
                 
-                if matches:
+                if matches and len(matches) > 0:
                     flashcards = []
                     for question, answer in matches:
-                        # Unescape JSON strings
-                        question = question.replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
-                        answer = answer.replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
-                        flashcards.append({'question': question, 'answer': answer})
-                    print(f"[INFO] Extracted {len(flashcards)} flashcards from malformed JSON")
-                else:
-                    # Try to find complete objects by looking for balanced braces
+                        # Properly unescape JSON strings
+                        try:
+                            # Use json.loads to properly unescape
+                            question = json.loads(f'"{question}"')
+                            answer = json.loads(f'"{answer}"')
+                            flashcards.append({'question': question, 'answer': answer})
+                        except:
+                            # Fallback: manual unescape
+                            question = question.replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
+                            answer = answer.replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
+                            flashcards.append({'question': question, 'answer': answer})
+                    print(f"[INFO] Extracted {len(flashcards)} flashcards using regex pattern")
+                
+                # Strategy 2: If regex didn't work, try finding complete objects by balanced braces
+                if not flashcards or len(flashcards) == 0:
+                    # Find all complete JSON objects by tracking brace balance
+                    objects = []
                     brace_count = 0
-                    last_valid_pos = 0
+                    obj_start = -1
+                    in_string = False
+                    escape_next = False
+                    
                     for i, char in enumerate(content):
+                        if escape_next:
+                            escape_next = False
+                            continue
+                        if char == '\\':
+                            escape_next = True
+                            continue
+                        if char == '"' and not escape_next:
+                            in_string = not in_string
+                            continue
+                        if in_string:
+                            continue
                         if char == '{':
+                            if brace_count == 0:
+                                obj_start = i
                             brace_count += 1
                         elif char == '}':
                             brace_count -= 1
-                            if brace_count == 0:
-                                last_valid_pos = i + 1
+                            if brace_count == 0 and obj_start >= 0:
+                                # Found a complete object
+                                obj_str = content[obj_start:i+1]
+                                try:
+                                    obj = json.loads(obj_str)
+                                    if isinstance(obj, dict) and 'question' in obj and 'answer' in obj:
+                                        objects.append(obj)
+                                except:
+                                    pass
+                                obj_start = -1
                     
-                    if last_valid_pos > 0:
-                        # Try parsing up to the last valid position
-                        partial_content = content[:last_valid_pos]
-                        # Ensure it's a valid array
-                        if partial_content.startswith('[') and not partial_content.rstrip().endswith(']'):
-                            partial_content = '[' + partial_content + ']'
-                        try:
-                            flashcards = json.loads(partial_content)
-                            print(f"[INFO] Parsed partial JSON (up to position {last_valid_pos})")
-                        except:
-                            pass
+                    if objects:
+                        flashcards = objects
+                        print(f"[INFO] Extracted {len(flashcards)} flashcards using brace balancing")
+                    
+                    # Strategy 3: Try parsing up to the error position
+                    if not flashcards or len(flashcards) == 0:
+                        error_pos = json_error.pos if hasattr(json_error, 'pos') else len(content)
+                        # Try to find the last complete object before the error
+                        for pos in range(error_pos, max(0, error_pos - 5000), -100):
+                            try:
+                                partial = content[:pos]
+                                # Try to close any open structures
+                                if partial.count('[') > partial.count(']'):
+                                    partial += ']'
+                                if partial.count('{') > partial.count('}'):
+                                    partial += '}'
+                                test_flashcards = json.loads(partial)
+                                if isinstance(test_flashcards, list) and len(test_flashcards) > 0:
+                                    flashcards = test_flashcards
+                                    print(f"[INFO] Parsed partial JSON (up to position {pos})")
+                                    break
+                            except:
+                                continue
             except Exception as fix_error:
                 print(f"[WARNING] JSON fix attempt failed: {str(fix_error)}")
             
@@ -504,19 +549,12 @@ def generate_flashcards_with_gemini(text, num_flashcards=10):
     Works on all cloud platforms - great alternative to Groq!
     """
     try:
-        # Try new google.genai package first, fallback to deprecated google.generativeai
+        # Use google.generativeai (stable, works reliably)
         try:
-            import google.genai as genai
-            use_new_api = True
-            print("[INFO] Using new google.genai package")
+            import google.generativeai as genai
         except ImportError:
-            try:
-                import google.generativeai as genai
-                use_new_api = False
-                print("[WARNING] Using deprecated google.generativeai package. Consider updating to google.genai")
-            except ImportError:
-                print("[ERROR] Google Generative AI library not installed. Install with: pip install google-genai")
-                return None
+            print("[ERROR] Google Generative AI library not installed. Install with: pip install google-generativeai")
+            return None
         
         # Check if API key is configured
         api_key = getattr(settings, 'GEMINI_API_KEY', '')
@@ -527,15 +565,10 @@ def generate_flashcards_with_gemini(text, num_flashcards=10):
         model_name = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
         print(f"[INFO] Using Gemini LLM: {model_name} for flashcard generation")
         
-        # Configure Gemini based on API version
-        if use_new_api:
-            # New API (google.genai)
-            client = genai.Client(api_key=api_key)
-            model = client.models.get(model_name)
-        else:
-            # Old API (google.generativeai) - deprecated
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(model_name)
+        # Configure Gemini - use old API for now (new API has compatibility issues)
+        # Old API (google.generativeai) - works reliably
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(model_name)
         
         # Truncate text if too long
         max_chars = 8000  # Leave room for prompt
@@ -569,35 +602,22 @@ EXAMPLES OF WHAT NOT TO CREATE (REJECT THESE):
 
 Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JSON array."""
         
-        # Generate with Gemini (handle both new and old API)
-        if use_new_api:
-            # New API (google.genai)
+        # Generate with Gemini
+        try:
             response = model.generate_content(
                 prompt,
-                config={
-                    'temperature': 0.9,
-                    'max_output_tokens': 4000,
-                }
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.9,
+                    max_output_tokens=4000,
+                )
             )
             content = response.text.strip()
-        else:
-            # Old API (google.generativeai) - deprecated
-            try:
-                response = model.generate_content(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        temperature=0.9,
-                        max_output_tokens=4000,
-                    )
-                )
-                content = response.text.strip()
-            except Exception as old_api_error:
-                error_str = str(old_api_error).lower()
-                if '404' in error_str or 'not found' in error_str or 'not supported' in error_str:
-                    print(f"[ERROR] Gemini model '{model_name}' not found with old API. The google.generativeai package is deprecated.")
-                    print("[INFO] Please install google-genai package: pip install google-genai")
-                    print("[INFO] Or use a different model name that works with the old API.")
-                raise old_api_error
+        except Exception as api_error:
+            error_str = str(api_error).lower()
+            if '404' in error_str or 'not found' in error_str or 'not supported' in error_str:
+                print(f"[ERROR] Gemini model '{model_name}' not found or not supported: {str(api_error)}")
+                print("[INFO] Try using a different model like 'gemini-pro' or check available models.")
+            raise api_error
         
         # Remove markdown code blocks if present
         if content.startswith('```'):
