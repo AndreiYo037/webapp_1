@@ -30,6 +30,19 @@ def llm_info(request):
             llm_status = "fallback"
             llm_description = "Groq API key not set, using rule-based generation"
             llm_icon = "📝"
+    elif provider == 'gemini':
+        api_key = getattr(settings, 'GEMINI_API_KEY', '')
+        model = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
+        if api_key:
+            llm_name = f"Gemini ({model})"
+            llm_status = "active"
+            llm_description = f"Using Google Gemini AI model: {model}"
+            llm_icon = "✨"
+        else:
+            llm_name = "Rule-based (Gemini not configured)"
+            llm_status = "fallback"
+            llm_description = "Gemini API key not set, using rule-based generation"
+            llm_icon = "📝"
     elif provider == 'ollama':
         base_url = getattr(settings, 'OLLAMA_BASE_URL', 'http://localhost:11434')
         model = getattr(settings, 'OLLAMA_MODEL', 'mistral')

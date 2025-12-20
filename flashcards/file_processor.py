@@ -412,14 +412,154 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
         return None
 
 
+def generate_flashcards_with_gemini(text, num_flashcards=10):
+    """
+    Generate flashcards using Google Gemini (FREE, cloud-based, very capable!)
+    Works on all cloud platforms - great alternative to Groq!
+    """
+    try:
+        import google.generativeai as genai
+        
+        # Check if API key is configured
+        api_key = getattr(settings, 'GEMINI_API_KEY', '')
+        if not api_key:
+            print("[WARNING] Gemini API key not found - falling back to other methods")
+            return None
+        
+        model_name = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
+        print(f"[INFO] Using Gemini LLM: {model_name} for flashcard generation")
+        
+        # Configure Gemini
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(model_name)
+        
+        # Truncate text if too long
+        max_chars = 8000  # Leave room for prompt
+        if len(text) > max_chars:
+            text = text[:max_chars] + "..."
+        
+        prompt = f"""You are creating {num_flashcards} educational flashcards. These MUST be comprehensive and test deep understanding.
+
+STRICT REQUIREMENTS - FOLLOW THESE EXACTLY:
+1. Each answer MUST be at least 50 words (approximately 3-5 sentences)
+2. Questions MUST test understanding, not vocabulary - use "How", "Why", "Explain", "Compare", "Analyze", "What are the differences"
+3. NEVER create simple "What is X?" questions with one-word answers
+4. Focus on: processes, relationships, comparisons, applications, mechanisms, cause-effect
+5. Each flashcard should require the learner to explain concepts, not just recall terms
+
+Text content:
+{text}
+
+Generate exactly {num_flashcards} flashcards in JSON format with "question" and "answer" fields.
+
+REQUIRED FORMAT - Each answer must be comprehensive:
+- Question types to use: "How does...", "Explain why...", "What are the key differences between...", "Compare and contrast...", "Describe the process of...", "Analyze the relationship between..."
+- Answers must be detailed explanations (50+ words minimum)
+
+EXAMPLES OF WHAT TO CREATE:
+{{"question": "How does the process of cellular respiration convert glucose into ATP, and what are the main stages involved?", "answer": "Cellular respiration converts glucose into ATP through three main stages: glycolysis, the Krebs cycle, and the electron transport chain. In glycolysis, glucose is broken down in the cytoplasm to produce pyruvate and a small amount of ATP. The pyruvate then enters the mitochondria where it's converted to acetyl-CoA for the Krebs cycle, which produces NADH and FADH2. Finally, the electron transport chain uses these electron carriers to create a proton gradient that drives ATP synthesis through chemiosmosis, producing the majority of ATP."}}
+
+EXAMPLES OF WHAT NOT TO CREATE (REJECT THESE):
+- {{"question": "What is DNA?", "answer": "Genetic material."}}  ❌ TOO SIMPLE
+- {{"question": "Define respiration.", "answer": "A process."}}  ❌ TOO SIMPLE  
+
+Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JSON array."""
+        
+        # Generate with Gemini
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.9,
+                max_output_tokens=4000,
+            )
+        )
+        
+        # Extract content
+        content = response.text.strip()
+        
+        # Remove markdown code blocks if present
+        if content.startswith('```'):
+            lines = content.split('\n')
+            content = '\n'.join(lines[1:-1]) if lines[-1].startswith('```') else '\n'.join(lines[1:])
+        
+        # Try to extract JSON from response
+        start_idx = content.find('[')
+        end_idx = content.rfind(']') + 1
+        
+        if start_idx != -1 and end_idx > start_idx:
+            content = content[start_idx:end_idx]
+        
+        # Parse JSON
+        flashcards = json.loads(content)
+        
+        # Validate and format - filter out simple/short flashcards (same as Groq)
+        if isinstance(flashcards, list):
+            formatted_flashcards = []
+            for card in flashcards:
+                if isinstance(card, dict) and 'question' in card and 'answer' in card:
+                    question = str(card['question']).strip()
+                    answer = str(card['answer']).strip()
+                    
+                    # Filter out simple flashcards
+                    if len(answer) < 50:
+                        print(f"[FILTER] Skipping flashcard - answer too short: {question[:50]}...")
+                        continue
+                    
+                    answer_words = answer.split()
+                    if len(answer_words) < 10:
+                        print(f"[FILTER] Skipping flashcard - answer too simple ({len(answer_words)} words): {question[:50]}...")
+                        continue
+                    
+                    question_lower = question.lower()
+                    if (question_lower.startswith('what is ') and len(question.split()) < 5) or \
+                       (question_lower.startswith('define ') and len(question.split()) < 4):
+                        if len(answer_words) < 15:
+                            print(f"[FILTER] Skipping flashcard - too simple question/answer: {question[:50]}...")
+                            continue
+                    
+                    formatted_flashcards.append({
+                        'question': question,
+                        'answer': answer
+                    })
+            
+            if len(formatted_flashcards) < num_flashcards * 0.5:
+                print(f"[WARNING] Only {len(formatted_flashcards)}/{num_flashcards} flashcards passed quality filter")
+                if len(formatted_flashcards) == 0:
+                    return None
+            
+            print(f"[SUCCESS] {len(formatted_flashcards)} comprehensive flashcards generated using Gemini")
+            return formatted_flashcards if formatted_flashcards else None
+        
+        return None
+        
+    except ImportError:
+        print("[ERROR] Google Generative AI library not installed. Install with: pip install google-generativeai")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"[ERROR] Gemini JSON decode error: {str(e)}. Response may be malformed.")
+        return None
+    except Exception as e:
+        error_str = str(e).lower()
+        
+        if 'quota' in error_str or 'rate limit' in error_str or '429' in error_str:
+            print(f"[ERROR] Gemini quota/rate limit exceeded: {str(e)}")
+        elif '401' in error_str or 'unauthorized' in error_str or 'invalid' in error_str and 'key' in error_str:
+            print(f"[ERROR] Gemini API key invalid or unauthorized: {str(e)}")
+        else:
+            print(f"[ERROR] Gemini generation error: {str(e)}")
+        
+        print("[INFO] Falling back to other LLM providers or rule-based generation.")
+        return None
+
+
 def generate_flashcards_with_llm(text, num_flashcards=10):
     """
     Generate flashcards using the configured LLM provider
-    Tries Groq first (free, cloud), then Ollama, then falls back to rule-based
+    Tries configured provider first, then falls back to others, then rule-based
     """
     provider = getattr(settings, 'LLM_PROVIDER', 'groq').lower()
     
-    # Try Groq first (free, cloud-based, works everywhere!)
+    # Try configured provider first
     if provider == 'groq':
         print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Groq...")
         groq_result = generate_flashcards_with_groq(text, num_flashcards)
@@ -427,7 +567,36 @@ def generate_flashcards_with_llm(text, num_flashcards=10):
             print(f"[SUCCESS] Generated {len(groq_result)} flashcards using Groq!")
             return groq_result
         else:
-            print("[WARNING] Groq generation failed - falling back to rule-based")
+            print("[WARNING] Groq generation failed - trying Gemini...")
+    
+    if provider == 'gemini':
+        print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Gemini...")
+        gemini_result = generate_flashcards_with_gemini(text, num_flashcards)
+        if gemini_result:
+            print(f"[SUCCESS] Generated {len(gemini_result)} flashcards using Gemini!")
+            return gemini_result
+        else:
+            print("[WARNING] Gemini generation failed - trying Groq...")
+            # Fallback to Groq
+            groq_result = generate_flashcards_with_groq(text, num_flashcards)
+            if groq_result:
+                return groq_result
+    
+    # Try Groq if not already tried
+    if provider != 'groq':
+        print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Groq...")
+        groq_result = generate_flashcards_with_groq(text, num_flashcards)
+        if groq_result:
+            print(f"[SUCCESS] Generated {len(groq_result)} flashcards using Groq!")
+            return groq_result
+    
+    # Try Gemini if not already tried
+    if provider != 'gemini':
+        print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Gemini...")
+        gemini_result = generate_flashcards_with_gemini(text, num_flashcards)
+        if gemini_result:
+            print(f"[SUCCESS] Generated {len(gemini_result)} flashcards using Gemini!")
+            return gemini_result
     
     # Try Ollama (free, local only)
     if provider == 'ollama':

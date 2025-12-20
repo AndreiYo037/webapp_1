@@ -198,12 +198,16 @@ if not DEBUG:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # LLM Configuration
-# Provider options: 'groq' (free, cloud - recommended), 'ollama' (free, local), 'none' (rule-based)
+# Provider options: 'groq' (free, cloud), 'gemini' (free, cloud - Google), 'ollama' (free, local), 'none' (rule-based)
 LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'groq').lower()  # Default to Groq (free, works on cloud!)
 
 # Groq Configuration (Free, Cloud-Based - Works on all platforms!)
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 GROQ_MODEL = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')  # Options: llama-3.3-70b-versatile, mixtral-8x7b-32768, gemma2-9b-it
+
+# Gemini Configuration (Free, Cloud-Based - Google AI)
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')  # Options: gemini-1.5-flash (fast, free), gemini-1.5-pro (more capable)
 
 # Ollama Configuration (Free & Local - Only works if Ollama is installed)
 OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
