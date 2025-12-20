@@ -12,12 +12,16 @@ def llm_info(request):
     use_llm = getattr(settings, 'USE_LLM', True)
     debug_mode = getattr(settings, 'DEBUG', False)
     
-    # In production, prioritize cloud LLMs even if provider is not explicitly set
-    if not debug_mode and provider == 'groq':
-        # Check Groq first in production
+    # Helper function to check if API key is valid (not empty/whitespace)
+    def is_valid_api_key(key):
+        return key and isinstance(key, str) and key.strip() != ''
+    
+    # Check Groq first (default provider)
+    if provider == 'groq' or provider == '':
         api_key = getattr(settings, 'GROQ_API_KEY', '')
         model = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
-        if api_key:
+        
+        if is_valid_api_key(api_key) and use_llm:
             llm_name = f"Groq ({model})"
             llm_status = "active"
             llm_description = f"Using Groq cloud-based AI model: {model}"
@@ -27,14 +31,22 @@ def llm_info(request):
                 'llm_status': llm_status,
                 'llm_description': llm_description,
                 'llm_icon': llm_icon,
-                'llm_provider': provider,
+                'llm_provider': 'groq',
                 'use_llm': use_llm,
             }
         else:
-            # Groq not configured - show helpful message
-            llm_name = "Rule-based (Groq API key missing)"
+            # Groq not configured properly
+            if not use_llm:
+                llm_name = "Rule-based (USE_LLM=false)"
+                llm_description = "USE_LLM is set to false. Set USE_LLM=true in Railway Variables."
+            elif not is_valid_api_key(api_key):
+                llm_name = "Rule-based (Groq API key missing)"
+                llm_description = "GROQ_API_KEY is not set or empty. Set it in Railway Variables. See RAILWAY_GROQ_SETUP.md"
+            else:
+                llm_name = "Rule-based (Groq not configured)"
+                llm_description = "Groq API key not set. Set GROQ_API_KEY environment variable."
+            
             llm_status = "fallback"
-            llm_description = "Set GROQ_API_KEY in Railway Variables to use Groq LLM. See RAILWAY_GROQ_SETUP.md"
             llm_icon = "📝"
             return {
                 'llm_name': llm_name,
@@ -49,25 +61,12 @@ def llm_info(request):
     if not use_llm:
         llm_name = "Rule-based (No LLM)"
         llm_status = "disabled"
-        llm_description = "Using rule-based flashcard generation"
+        llm_description = "USE_LLM is set to false. Set USE_LLM=true to enable LLM."
         llm_icon = "📝"
-    elif provider == 'groq':
-        api_key = getattr(settings, 'GROQ_API_KEY', '')
-        model = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
-        if api_key:
-            llm_name = f"Groq ({model})"
-            llm_status = "active"
-            llm_description = f"Using Groq cloud-based AI model: {model}"
-            llm_icon = "🚀"
-        else:
-            llm_name = "Rule-based (Groq not configured)"
-            llm_status = "fallback"
-            llm_description = "Groq API key not set. Set GROQ_API_KEY environment variable."
-            llm_icon = "📝"
     elif provider == 'gemini':
         api_key = getattr(settings, 'GEMINI_API_KEY', '')
         model = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
-        if api_key:
+        if is_valid_api_key(api_key) and use_llm:
             llm_name = f"Gemini ({model})"
             llm_status = "active"
             llm_description = f"Using Google Gemini AI model: {model}"
@@ -84,13 +83,13 @@ def llm_info(request):
             # Production/cloud - check if cloud LLMs are available
             groq_key = getattr(settings, 'GROQ_API_KEY', '')
             gemini_key = getattr(settings, 'GEMINI_API_KEY', '')
-            if groq_key:
+            if is_valid_api_key(groq_key) and use_llm:
                 model = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
                 llm_name = f"Groq ({model}) - Auto-selected"
                 llm_status = "active"
                 llm_description = f"Ollama configured but using Groq (cloud LLM) in production"
                 llm_icon = "🚀"
-            elif gemini_key:
+            elif is_valid_api_key(gemini_key) and use_llm:
                 model = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
                 llm_name = f"Gemini ({model}) - Auto-selected"
                 llm_status = "active"

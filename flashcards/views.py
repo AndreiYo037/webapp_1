@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.files.base import ContentFile
+from django.conf import settings
 import mimetypes
 
 from .models import UploadedFile, FlashcardSet, Flashcard
@@ -11,9 +12,21 @@ def index(request):
     """Home page with file upload"""
     recent_files = UploadedFile.objects.all()[:5]
     recent_sets = FlashcardSet.objects.all()[:5]
+    
+    # Debug: Show LLM configuration (only in DEBUG mode)
+    debug_info = {}
+    if getattr(settings, 'DEBUG', False):
+        debug_info = {
+            'llm_provider': getattr(settings, 'LLM_PROVIDER', 'not set'),
+            'use_llm': getattr(settings, 'USE_LLM', 'not set'),
+            'groq_key_set': bool(getattr(settings, 'GROQ_API_KEY', '').strip()),
+            'groq_key_length': len(getattr(settings, 'GROQ_API_KEY', '')),
+        }
+    
     return render(request, 'flashcards/index.html', {
         'recent_files': recent_files,
-        'recent_sets': recent_sets
+        'recent_sets': recent_sets,
+        'debug_info': debug_info,
     })
 
 
@@ -81,7 +94,14 @@ def upload_file(request):
             return redirect('view_file', file_id=file_obj.id)
             
         except Exception as e:
-            messages.error(request, f'Error processing file: {str(e)}')
+            # Safely encode error message to avoid Unicode encoding issues
+            error_msg = str(e)
+            try:
+                # Try to encode to ensure it's safe for display
+                error_msg.encode('ascii', errors='replace')
+            except:
+                error_msg = "Error processing file: Unable to process file (encoding issue)"
+            messages.error(request, f'Error processing file: {error_msg}')
             file_obj.delete()
             return redirect('index')
     
@@ -122,4 +142,3 @@ def list_flashcard_sets(request):
     return render(request, 'flashcards/list_sets.html', {
         'flashcard_sets': sets
     })
-
