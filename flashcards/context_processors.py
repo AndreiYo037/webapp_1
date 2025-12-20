@@ -10,6 +10,40 @@ def llm_info(request):
     """
     provider = getattr(settings, 'LLM_PROVIDER', 'groq').lower()
     use_llm = getattr(settings, 'USE_LLM', True)
+    debug_mode = getattr(settings, 'DEBUG', False)
+    
+    # In production, prioritize cloud LLMs even if provider is not explicitly set
+    if not debug_mode and provider == 'groq':
+        # Check Groq first in production
+        api_key = getattr(settings, 'GROQ_API_KEY', '')
+        model = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
+        if api_key:
+            llm_name = f"Groq ({model})"
+            llm_status = "active"
+            llm_description = f"Using Groq cloud-based AI model: {model}"
+            llm_icon = "🚀"
+            return {
+                'llm_name': llm_name,
+                'llm_status': llm_status,
+                'llm_description': llm_description,
+                'llm_icon': llm_icon,
+                'llm_provider': provider,
+                'use_llm': use_llm,
+            }
+        else:
+            # Groq not configured - show helpful message
+            llm_name = "Rule-based (Groq API key missing)"
+            llm_status = "fallback"
+            llm_description = "Set GROQ_API_KEY in Railway Variables to use Groq LLM. See RAILWAY_GROQ_SETUP.md"
+            llm_icon = "📝"
+            return {
+                'llm_name': llm_name,
+                'llm_status': llm_status,
+                'llm_description': llm_description,
+                'llm_icon': llm_icon,
+                'llm_provider': provider,
+                'use_llm': use_llm,
+            }
     
     # Determine which LLM is actually being used
     if not use_llm:
@@ -28,7 +62,7 @@ def llm_info(request):
         else:
             llm_name = "Rule-based (Groq not configured)"
             llm_status = "fallback"
-            llm_description = "Groq API key not set, using rule-based generation"
+            llm_description = "Groq API key not set. Set GROQ_API_KEY environment variable."
             llm_icon = "📝"
     elif provider == 'gemini':
         api_key = getattr(settings, 'GEMINI_API_KEY', '')
