@@ -193,6 +193,35 @@
             color: #6c757d;
             background: #f8f9fa;
         }
+        
+        .llm-badge {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            font-size: 0.9em;
+            backdrop-filter: blur(10px);
+        }
+        
+        .llm-badge.active {
+            background: rgba(40, 167, 69, 0.3);
+            border: 1px solid rgba(40, 167, 69, 0.5);
+        }
+        
+        .llm-badge.fallback {
+            background: rgba(255, 193, 7, 0.3);
+            border: 1px solid rgba(255, 193, 7, 0.5);
+        }
+        
+        .llm-badge.disabled {
+            background: rgba(108, 117, 125, 0.3);
+            border: 1px solid rgba(108, 117, 125, 0.5);
+        }
+        
+        .llm-badge .llm-icon {
+            margin-right: 6px;
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -201,6 +230,10 @@
         <header>
             <h1>📚 Flashcard Generator</h1>
             <p>Transform your files into interactive flashcards</p>
+            <div class="llm-badge {{ llm_status }}" title="{{ llm_description }}">
+                <span class="llm-icon">{{ llm_icon }}</span>
+                <strong>AI Engine:</strong> {{ llm_name }}
+            </div>
             <nav>
                 <a href="{% url 'index' %}">Home</a>
                 <a href="{% url 'upload_file' %}">Upload File</a>

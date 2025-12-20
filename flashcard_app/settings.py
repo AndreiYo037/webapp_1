@@ -90,6 +90,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'flashcards.context_processors.llm_info',  # Add LLM info to all templates
             ],
         },
     },
