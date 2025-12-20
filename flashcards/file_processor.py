@@ -580,34 +580,35 @@ def generate_flashcards_with_gemini(text, num_flashcards=10):
         if len(text) > max_chars:
             text = text[:max_chars] + "..."
         
-        prompt = f"""You are creating {num_flashcards} educational flashcards with detailed answers containing key points and explanations.
+        prompt = f"""You are creating {num_flashcards} educational flashcards with CONCISE answers containing key points.
 
 STRICT REQUIREMENTS - FOLLOW THESE EXACTLY:
-1. Each answer MUST be comprehensive (up to 250 words maximum) - include key points and explanations
-2. Answers should cover main concepts with sufficient detail for understanding
-3. Questions MUST test understanding - use "How", "Why", "Explain", "Compare", "What are the key differences"
-4. NEVER create simple "What is X?" questions with one-word answers
-5. Focus on: key processes, main differences, essential relationships, critical applications, mechanisms
+1. Each answer MUST be CONCISE (up to 150 words maximum) - summarize key points clearly
+2. Questions MUST test understanding - use "How", "Why", "Explain", "Compare", "What are the key differences"
+3. NEVER create simple "What is X?" questions with one-word answers
+4. Focus on: key processes, main differences, essential relationships, critical applications
+5. Answers should be brief but informative - cover main concepts without excessive detail
 
 Text content:
 {text}
 
 Generate exactly {num_flashcards} flashcards in JSON format with "question" and "answer" fields.
 
-REQUIRED FORMAT - Answers should be detailed but focused:
+REQUIRED FORMAT - Answers must be CONCISE and summarized:
 - Question types: "How does...", "Explain why...", "What are the key differences...", "Compare...", "What are the main steps..."
-- Answers: Detailed explanations with key points (up to 250 words, comprehensive but not excessive)
+- Answers: Concise summaries with key points (up to 150 words, NOT lengthy explanations)
 
 EXAMPLES OF WHAT TO CREATE:
-{{"question": "How does cellular respiration convert glucose into ATP?", "answer": "Cellular respiration converts glucose into ATP through three main stages. First, glycolysis occurs in the cytoplasm, breaking down glucose into pyruvate while producing a small amount of ATP and NADH. Second, the pyruvate enters mitochondria and is converted to acetyl-CoA, entering the Krebs cycle which produces more NADH, FADH2, and ATP. Third, the electron transport chain uses these electron carriers to create a proton gradient across the mitochondrial membrane, driving ATP synthesis through chemiosmosis. This process produces the majority of ATP needed by cells."}}
+{{"question": "How does cellular respiration convert glucose into ATP?", "answer": "Cellular respiration converts glucose into ATP through three stages. Glycolysis breaks down glucose in the cytoplasm, producing pyruvate and some ATP. Pyruvate enters mitochondria for the Krebs cycle, producing NADH and FADH2. The electron transport chain uses these carriers to create a proton gradient, driving ATP synthesis via chemiosmosis. This produces most of the cell's ATP."}}
 
-{{"question": "What are the key differences between DNA and RNA?", "answer": "DNA and RNA differ in structure, function, and location. Structurally, DNA is double-stranded with deoxyribose sugar and thymine bases, while RNA is single-stranded with ribose sugar and uracil instead of thymine. Functionally, DNA stores genetic information long-term in the nucleus, while RNA acts as a messenger (mRNA), transfers amino acids (tRNA), and forms ribosomes (rRNA) for protein synthesis. Location-wise, DNA remains primarily in the nucleus, while RNA is synthesized in the nucleus but functions in both the nucleus and cytoplasm. These differences enable DNA to serve as the stable genetic blueprint while RNA facilitates active protein synthesis."}}
+{{"question": "What are the key differences between DNA and RNA?", "answer": "DNA is double-stranded with deoxyribose and thymine, storing genetic info in the nucleus. RNA is single-stranded with ribose and uracil, functioning as mRNA, tRNA, and rRNA for protein synthesis. DNA serves as the stable genetic blueprint, while RNA actively facilitates protein synthesis in both nucleus and cytoplasm."}}
 
 EXAMPLES OF WHAT NOT TO CREATE (REJECT THESE):
 - {{"question": "What is DNA?", "answer": "Genetic material."}}  ❌ TOO SIMPLE
 - {{"question": "Define respiration.", "answer": "A process."}}  ❌ TOO SIMPLE  
+- Long answers over 150 words  ❌ TOO LENGTHY
 
-Generate ONLY comprehensive flashcards with detailed answers (up to 250 words). Return ONLY the JSON array."""
+Generate ONLY concise flashcards with summarized answers (up to 150 words). Return ONLY the JSON array."""
         
         # Generate with Gemini
         try:
