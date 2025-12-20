@@ -198,8 +198,18 @@ if not DEBUG:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # LLM Configuration
-# Provider options: 'groq' (free, cloud), 'gemini' (free, cloud - Google), 'ollama' (free, local), 'none' (rule-based)
-LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'groq').lower()  # Default to Groq (free, works on cloud!)
+# Provider options: 'groq' (free, cloud - recommended for deployment), 'gemini' (free, cloud), 'ollama' (free, local - NOT for cloud deployment), 'none' (rule-based)
+# Default to Groq (cloud-based, works on Railway/Render/etc!)
+LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'groq').lower()
+
+# Warn if using Ollama in production (won't work on cloud platforms)
+if not DEBUG and LLM_PROVIDER == 'ollama':
+    import warnings
+    warnings.warn(
+        "Ollama is configured but won't work on cloud platforms (Railway, Render, etc.). "
+        "Use 'groq' or 'gemini' for cloud deployment. Set LLM_PROVIDER=groq or LLM_PROVIDER=gemini.",
+        UserWarning
+    )
 
 # Groq Configuration (Free, Cloud-Based - Works on all platforms!)
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')

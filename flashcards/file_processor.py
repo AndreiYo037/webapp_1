@@ -598,11 +598,23 @@ def generate_flashcards_with_llm(text, num_flashcards=10):
             print(f"[SUCCESS] Generated {len(gemini_result)} flashcards using Gemini!")
             return gemini_result
     
-    # Try Ollama (free, local only)
+    # Try Ollama (free, local only - NOT for cloud deployment!)
     if provider == 'ollama':
+        print("[WARNING] Ollama is local-only and won't work on cloud platforms. Consider using Groq or Gemini.")
         ollama_result = generate_flashcards_with_ollama(text, num_flashcards)
         if ollama_result:
             return ollama_result
+        else:
+            # If Ollama fails (likely in cloud), try cloud LLMs as fallback
+            print("[INFO] Ollama failed (expected on cloud platforms). Trying cloud LLMs...")
+            # Try Groq
+            groq_result = generate_flashcards_with_groq(text, num_flashcards)
+            if groq_result:
+                return groq_result
+            # Try Gemini
+            gemini_result = generate_flashcards_with_gemini(text, num_flashcards)
+            if gemini_result:
+                return gemini_result
     
     # No LLM available or failed
     print("ℹ️ Using rule-based flashcard generation (no LLM)")
