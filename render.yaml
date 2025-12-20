@@ -2,7 +2,7 @@ services:
   - type: web
     name: flashcard-app
     env: python
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate --noinput
     startCommand: gunicorn flashcard_app.wsgi
     envVars:
       - key: SECRET_KEY
