@@ -291,8 +291,8 @@ Return ONLY the JSON array, no additional text or explanation."""
                 {"role": "system", "content": "You are an expert educational content creator specializing in comprehensive learning. Your flashcards test deep understanding, concepts, relationships, and applications - not just vocabulary or single-word facts. Always create meaningful questions that require thoughtful, detailed answers. Always return valid JSON."},
                 {"role": "user", "content": prompt}
             ],
-                temperature=0.7,
-                max_tokens=2000
+                temperature=0.8,  # Slightly higher for more creative, comprehensive questions
+                max_tokens=3000  # Increased to allow for more detailed answers
             )
         except Exception as api_error:
             # Re-raise to be caught by outer exception handler with better context
