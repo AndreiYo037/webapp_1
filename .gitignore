@@ -1,0 +1,93 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/media
+/staticfiles
+/static
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Ollama (if storing models locally)
+.ollama/
+
+# Windows System Files
+AppData/
+Contacts/
+Favorites/
+Links/
+Music/
+OneDrive/
+Saved Games/
+Searches/
+Videos/
+Downloads/
+Documents/
+Desktop/
+Pictures/
+NTUSER.*
+ntuser.*
+*.regtrans-ms
+*.blf
+*.ini
+*.LOG*
+postgresql_*.exe
+Application Data/
+Cookies/
+Local Settings/
+My Documents/
+NetHood/
+PrintHood/
+Recent/
+SendTo/
+Start Menu/
+Templates/
+
+# Personal directories (don't commit)
+.cisco/
+.cursor/
+.idlerc/
+.ssh/
+
+# Project files to track
+# (All other files in project root will be tracked)
+
