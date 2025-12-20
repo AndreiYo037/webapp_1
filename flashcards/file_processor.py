@@ -331,7 +331,7 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
             response = client.chat.completions.create(
                 model=model,
             messages=[
-                {"role": "system", "content": "You are an expert educational content creator. You create CONCISE flashcards with summarized answers (20-40 words) containing only key points. You NEVER create simple vocabulary tests or one-word answers. Answers must be brief summaries with essential information only. You always return valid JSON."},
+                {"role": "system", "content": "You are an expert educational content creator. You create flashcards with detailed answers (up to 250 words) containing key points and explanations. You NEVER create simple vocabulary tests or one-word answers. Answers should be comprehensive but focused. You always return valid JSON."},
                 {"role": "user", "content": prompt}
             ],
                 temperature=0.9,  # Higher temperature for more creative, comprehensive questions
@@ -477,9 +477,9 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
                         print(f"[FILTER] Skipping flashcard - answer too simple ({len(answer_words)} words): {question[:50]}...")
                         continue
                     
-                    # Skip if answer is too long (over 60 words - should be concise!)
-                    if len(answer_words) > 60:
-                        print(f"[FILTER] Skipping flashcard - answer too lengthy ({len(answer_words)} words, max 60): {question[:50]}...")
+                    # Skip if answer is too long (over 250 words)
+                    if len(answer_words) > 250:
+                        print(f"[FILTER] Skipping flashcard - answer too lengthy ({len(answer_words)} words, max 250): {question[:50]}...")
                         continue
                     
                     # Skip if question is too simple (just "What is X?" or "Define X") with very short answer
@@ -580,35 +580,34 @@ def generate_flashcards_with_gemini(text, num_flashcards=10):
         if len(text) > max_chars:
             text = text[:max_chars] + "..."
         
-        prompt = f"""You are creating {num_flashcards} educational flashcards with CONCISE, SUMMARIZED answers containing only key points.
+        prompt = f"""You are creating {num_flashcards} educational flashcards with detailed answers containing key points and explanations.
 
 STRICT REQUIREMENTS - FOLLOW THESE EXACTLY:
-1. Each answer MUST be CONCISE (20-40 words maximum) - summarize key points only
-2. Answers should use bullet points or brief sentences covering main concepts
+1. Each answer MUST be comprehensive (up to 250 words maximum) - include key points and explanations
+2. Answers should cover main concepts with sufficient detail for understanding
 3. Questions MUST test understanding - use "How", "Why", "Explain", "Compare", "What are the key differences"
 4. NEVER create simple "What is X?" questions with one-word answers
-5. Focus on: key processes, main differences, essential relationships, critical applications
+5. Focus on: key processes, main differences, essential relationships, critical applications, mechanisms
 
 Text content:
 {text}
 
 Generate exactly {num_flashcards} flashcards in JSON format with "question" and "answer" fields.
 
-REQUIRED FORMAT - Answers must be CONCISE and summarized:
+REQUIRED FORMAT - Answers should be detailed but focused:
 - Question types: "How does...", "Explain why...", "What are the key differences...", "Compare...", "What are the main steps..."
-- Answers: Brief summaries with key points only (20-40 words, NOT lengthy explanations)
+- Answers: Detailed explanations with key points (up to 250 words, comprehensive but not excessive)
 
 EXAMPLES OF WHAT TO CREATE:
-{{"question": "How does cellular respiration convert glucose into ATP?", "answer": "Three stages: (1) Glycolysis breaks down glucose in cytoplasm, producing pyruvate and some ATP. (2) Krebs cycle in mitochondria produces NADH/FADH2. (3) Electron transport chain uses these carriers to create ATP via chemiosmosis."}}
+{{"question": "How does cellular respiration convert glucose into ATP?", "answer": "Cellular respiration converts glucose into ATP through three main stages. First, glycolysis occurs in the cytoplasm, breaking down glucose into pyruvate while producing a small amount of ATP and NADH. Second, the pyruvate enters mitochondria and is converted to acetyl-CoA, entering the Krebs cycle which produces more NADH, FADH2, and ATP. Third, the electron transport chain uses these electron carriers to create a proton gradient across the mitochondrial membrane, driving ATP synthesis through chemiosmosis. This process produces the majority of ATP needed by cells."}}
 
-{{"question": "What are the key differences between DNA and RNA?", "answer": "DNA: double-stranded, deoxyribose, thymine, stores genetic info in nucleus. RNA: single-stranded, ribose, uracil, functions as mRNA/tRNA/rRNA for protein synthesis. DNA is stable blueprint; RNA is active messenger."}}
+{{"question": "What are the key differences between DNA and RNA?", "answer": "DNA and RNA differ in structure, function, and location. Structurally, DNA is double-stranded with deoxyribose sugar and thymine bases, while RNA is single-stranded with ribose sugar and uracil instead of thymine. Functionally, DNA stores genetic information long-term in the nucleus, while RNA acts as a messenger (mRNA), transfers amino acids (tRNA), and forms ribosomes (rRNA) for protein synthesis. Location-wise, DNA remains primarily in the nucleus, while RNA is synthesized in the nucleus but functions in both the nucleus and cytoplasm. These differences enable DNA to serve as the stable genetic blueprint while RNA facilitates active protein synthesis."}}
 
 EXAMPLES OF WHAT NOT TO CREATE (REJECT THESE):
 - {{"question": "What is DNA?", "answer": "Genetic material."}}  ❌ TOO SIMPLE
 - {{"question": "Define respiration.", "answer": "A process."}}  ❌ TOO SIMPLE  
-- Long answers over 50 words  ❌ TOO LENGTHY
 
-Generate ONLY concise flashcards with summarized key-point answers. Return ONLY the JSON array."""
+Generate ONLY comprehensive flashcards with detailed answers (up to 250 words). Return ONLY the JSON array."""
         
         # Generate with Gemini
         try:
@@ -712,9 +711,9 @@ Generate ONLY concise flashcards with summarized key-point answers. Return ONLY 
                         print(f"[FILTER] Skipping flashcard - answer too simple ({len(answer_words)} words): {question[:50]}...")
                         continue
                     
-                    # Skip if answer is too long (over 60 words - should be concise!)
-                    if len(answer_words) > 60:
-                        print(f"[FILTER] Skipping flashcard - answer too lengthy ({len(answer_words)} words, max 60): {question[:50]}...")
+                    # Skip if answer is too long (over 250 words)
+                    if len(answer_words) > 250:
+                        print(f"[FILTER] Skipping flashcard - answer too lengthy ({len(answer_words)} words, max 250): {question[:50]}...")
                         continue
                     
                     # Skip if question is too simple (just "What is X?" or "Define X") with very short answer
