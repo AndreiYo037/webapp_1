@@ -44,12 +44,37 @@ def llm_info(request):
             llm_description = "Gemini API key not set, using rule-based generation"
             llm_icon = "📝"
     elif provider == 'ollama':
-        base_url = getattr(settings, 'OLLAMA_BASE_URL', 'http://localhost:11434')
-        model = getattr(settings, 'OLLAMA_MODEL', 'mistral')
-        llm_name = f"Ollama ({model})"
-        llm_status = "active"
-        llm_description = f"Using local Ollama model: {model}"
-        llm_icon = "🖥️"
+        debug_mode = getattr(settings, 'DEBUG', False)
+        # In production, don't show Ollama - show fallback status instead
+        if not debug_mode:
+            # Production/cloud - check if cloud LLMs are available
+            groq_key = getattr(settings, 'GROQ_API_KEY', '')
+            gemini_key = getattr(settings, 'GEMINI_API_KEY', '')
+            if groq_key:
+                model = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
+                llm_name = f"Groq ({model}) - Auto-selected"
+                llm_status = "active"
+                llm_description = f"Ollama configured but using Groq (cloud LLM) in production"
+                llm_icon = "🚀"
+            elif gemini_key:
+                model = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
+                llm_name = f"Gemini ({model}) - Auto-selected"
+                llm_status = "active"
+                llm_description = f"Ollama configured but using Gemini (cloud LLM) in production"
+                llm_icon = "✨"
+            else:
+                llm_name = "Rule-based (Ollama not available in cloud)"
+                llm_status = "fallback"
+                llm_description = "Ollama is local-only. Configure Groq or Gemini for cloud deployment."
+                llm_icon = "📝"
+        else:
+            # Local development - show Ollama
+            base_url = getattr(settings, 'OLLAMA_BASE_URL', 'http://localhost:11434')
+            model = getattr(settings, 'OLLAMA_MODEL', 'mistral')
+            llm_name = f"Ollama ({model})"
+            llm_status = "active"
+            llm_description = f"Using local Ollama model: {model}"
+            llm_icon = "🖥️"
     else:
         llm_name = "Rule-based (No LLM)"
         llm_status = "disabled"

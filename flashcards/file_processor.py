@@ -555,13 +555,20 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
 def generate_flashcards_with_llm(text, num_flashcards=10):
     """
     Generate flashcards using the configured LLM provider
-    Tries configured provider first, then falls back to others, then rule-based
+    Prioritizes cloud LLMs (Groq, Gemini) - skips Ollama in production/cloud
     """
     provider = getattr(settings, 'LLM_PROVIDER', 'groq').lower()
+    debug_mode = getattr(settings, 'DEBUG', False)
     
-    # Try configured provider first
+    # In production/cloud, NEVER use Ollama - force cloud LLMs
+    if not debug_mode and provider == 'ollama':
+        print("[WARNING] Ollama is local-only and won't work on cloud platforms!")
+        print("[INFO] Forcing cloud LLM (Groq/Gemini) instead of Ollama...")
+        provider = 'groq'  # Force to cloud LLM
+    
+    # Try configured provider first (if it's a cloud LLM)
     if provider == 'groq':
-        print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Groq...")
+        print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Groq (cloud LLM)...")
         groq_result = generate_flashcards_with_groq(text, num_flashcards)
         if groq_result:
             print(f"[SUCCESS] Generated {len(groq_result)} flashcards using Groq!")
@@ -570,7 +577,7 @@ def generate_flashcards_with_llm(text, num_flashcards=10):
             print("[WARNING] Groq generation failed - trying Gemini...")
     
     if provider == 'gemini':
-        print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Gemini...")
+        print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Gemini (cloud LLM)...")
         gemini_result = generate_flashcards_with_gemini(text, num_flashcards)
         if gemini_result:
             print(f"[SUCCESS] Generated {len(gemini_result)} flashcards using Gemini!")
@@ -582,36 +589,33 @@ def generate_flashcards_with_llm(text, num_flashcards=10):
             if groq_result:
                 return groq_result
     
-    # Try Groq if not already tried
+    # Try cloud LLMs as fallback (prioritize cloud over local)
     if provider != 'groq':
-        print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Groq...")
+        print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Groq (cloud LLM)...")
         groq_result = generate_flashcards_with_groq(text, num_flashcards)
         if groq_result:
             print(f"[SUCCESS] Generated {len(groq_result)} flashcards using Groq!")
             return groq_result
     
-    # Try Gemini if not already tried
     if provider != 'gemini':
-        print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Gemini...")
+        print(f"[INFO] Attempting to generate {num_flashcards} flashcards using Gemini (cloud LLM)...")
         gemini_result = generate_flashcards_with_gemini(text, num_flashcards)
         if gemini_result:
             print(f"[SUCCESS] Generated {len(gemini_result)} flashcards using Gemini!")
             return gemini_result
     
-    # Try Ollama (free, local only - NOT for cloud deployment!)
-    if provider == 'ollama':
-        print("[WARNING] Ollama is local-only and won't work on cloud platforms. Consider using Groq or Gemini.")
+    # Only try Ollama in DEBUG mode (local development)
+    if provider == 'ollama' and debug_mode:
+        print("[INFO] Using Ollama (local development only)...")
         ollama_result = generate_flashcards_with_ollama(text, num_flashcards)
         if ollama_result:
             return ollama_result
         else:
-            # If Ollama fails (likely in cloud), try cloud LLMs as fallback
-            print("[INFO] Ollama failed (expected on cloud platforms). Trying cloud LLMs...")
-            # Try Groq
+            # If Ollama fails, try cloud LLMs
+            print("[INFO] Ollama failed. Trying cloud LLMs...")
             groq_result = generate_flashcards_with_groq(text, num_flashcards)
             if groq_result:
                 return groq_result
-            # Try Gemini
             gemini_result = generate_flashcards_with_gemini(text, num_flashcards)
             if gemini_result:
                 return gemini_result
