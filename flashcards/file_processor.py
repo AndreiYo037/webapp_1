@@ -466,23 +466,28 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
                     answer = str(card['answer']).strip()
                     
                     # Filter out simple flashcards
-                    # Skip if answer is too short (less than 50 characters)
-                    if len(answer) < 50:
+                    # Skip if answer is too short (less than 20 characters)
+                    if len(answer) < 20:
                         print(f"[FILTER] Skipping flashcard - answer too short: {question[:50]}...")
                         continue
                     
-                    # Skip if answer has too few words
+                    # Skip if answer has too few words (need at least 5 words for meaningful answer)
                     answer_words = answer.split()
-                    if len(answer_words) < 10:
+                    if len(answer_words) < 5:
                         print(f"[FILTER] Skipping flashcard - answer too simple ({len(answer_words)} words): {question[:50]}...")
                         continue
                     
-                    # Skip if question is too simple (just "What is X?" or "Define X") with short answer
+                    # Skip if answer is too long (over 60 words - should be concise!)
+                    if len(answer_words) > 60:
+                        print(f"[FILTER] Skipping flashcard - answer too lengthy ({len(answer_words)} words, max 60): {question[:50]}...")
+                        continue
+                    
+                    # Skip if question is too simple (just "What is X?" or "Define X") with very short answer
                     question_lower = question.lower()
-                    if (question_lower.startswith('what is ') and len(question.split()) < 5) or \
-                       (question_lower.startswith('define ') and len(question.split()) < 4):
+                    if (question_lower.startswith('what is ') and len(question.split()) < 4) or \
+                       (question_lower.startswith('define ') and len(question.split()) < 3):
                         # Check if answer is also too short/simple
-                        if len(answer_words) < 15:
+                        if len(answer_words) < 8:
                             print(f"[FILTER] Skipping flashcard - too simple question/answer: {question[:50]}...")
                             continue
                     
