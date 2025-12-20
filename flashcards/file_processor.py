@@ -287,10 +287,10 @@ Return ONLY the JSON array, no additional text or explanation."""
         try:
             response = client.chat.completions.create(
                 model=model,
-                messages=[
-                    {"role": "system", "content": "You are an expert at creating educational flashcards. Generate clear, concise questions and detailed answers. Always return valid JSON."},
-                    {"role": "user", "content": prompt}
-                ],
+            messages=[
+                {"role": "system", "content": "You are an expert educational content creator specializing in comprehensive learning. Your flashcards test deep understanding, concepts, relationships, and applications - not just vocabulary or single-word facts. Always create meaningful questions that require thoughtful, detailed answers. Always return valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
                 temperature=0.7,
                 max_tokens=2000
             )
