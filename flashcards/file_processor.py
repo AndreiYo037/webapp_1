@@ -331,7 +331,7 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
             response = client.chat.completions.create(
                 model=model,
             messages=[
-                {"role": "system", "content": "You are an expert educational content creator. You ONLY create comprehensive flashcards that test deep understanding. You NEVER create simple vocabulary tests or one-word answer questions. Every answer must be at least 50 words explaining concepts, processes, or relationships. You always return valid JSON."},
+                {"role": "system", "content": "You are an expert educational content creator. You create CONCISE flashcards with summarized answers (20-40 words) containing only key points. You NEVER create simple vocabulary tests or one-word answers. Answers must be brief summaries with essential information only. You always return valid JSON."},
                 {"role": "user", "content": prompt}
             ],
                 temperature=0.9,  # Higher temperature for more creative, comprehensive questions
@@ -575,32 +575,35 @@ def generate_flashcards_with_gemini(text, num_flashcards=10):
         if len(text) > max_chars:
             text = text[:max_chars] + "..."
         
-        prompt = f"""You are creating {num_flashcards} educational flashcards. These MUST be comprehensive and test deep understanding.
+        prompt = f"""You are creating {num_flashcards} educational flashcards with CONCISE, SUMMARIZED answers containing only key points.
 
 STRICT REQUIREMENTS - FOLLOW THESE EXACTLY:
-1. Each answer MUST be at least 50 words (approximately 3-5 sentences)
-2. Questions MUST test understanding, not vocabulary - use "How", "Why", "Explain", "Compare", "Analyze", "What are the differences"
-3. NEVER create simple "What is X?" questions with one-word answers
-4. Focus on: processes, relationships, comparisons, applications, mechanisms, cause-effect
-5. Each flashcard should require the learner to explain concepts, not just recall terms
+1. Each answer MUST be CONCISE (20-40 words maximum) - summarize key points only
+2. Answers should use bullet points or brief sentences covering main concepts
+3. Questions MUST test understanding - use "How", "Why", "Explain", "Compare", "What are the key differences"
+4. NEVER create simple "What is X?" questions with one-word answers
+5. Focus on: key processes, main differences, essential relationships, critical applications
 
 Text content:
 {text}
 
 Generate exactly {num_flashcards} flashcards in JSON format with "question" and "answer" fields.
 
-REQUIRED FORMAT - Each answer must be comprehensive:
-- Question types to use: "How does...", "Explain why...", "What are the key differences between...", "Compare and contrast...", "Describe the process of...", "Analyze the relationship between..."
-- Answers must be detailed explanations (50+ words minimum)
+REQUIRED FORMAT - Answers must be CONCISE and summarized:
+- Question types: "How does...", "Explain why...", "What are the key differences...", "Compare...", "What are the main steps..."
+- Answers: Brief summaries with key points only (20-40 words, NOT lengthy explanations)
 
 EXAMPLES OF WHAT TO CREATE:
-{{"question": "How does the process of cellular respiration convert glucose into ATP, and what are the main stages involved?", "answer": "Cellular respiration converts glucose into ATP through three main stages: glycolysis, the Krebs cycle, and the electron transport chain. In glycolysis, glucose is broken down in the cytoplasm to produce pyruvate and a small amount of ATP. The pyruvate then enters the mitochondria where it's converted to acetyl-CoA for the Krebs cycle, which produces NADH and FADH2. Finally, the electron transport chain uses these electron carriers to create a proton gradient that drives ATP synthesis through chemiosmosis, producing the majority of ATP."}}
+{{"question": "How does cellular respiration convert glucose into ATP?", "answer": "Three stages: (1) Glycolysis breaks down glucose in cytoplasm, producing pyruvate and some ATP. (2) Krebs cycle in mitochondria produces NADH/FADH2. (3) Electron transport chain uses these carriers to create ATP via chemiosmosis."}}
+
+{{"question": "What are the key differences between DNA and RNA?", "answer": "DNA: double-stranded, deoxyribose, thymine, stores genetic info in nucleus. RNA: single-stranded, ribose, uracil, functions as mRNA/tRNA/rRNA for protein synthesis. DNA is stable blueprint; RNA is active messenger."}}
 
 EXAMPLES OF WHAT NOT TO CREATE (REJECT THESE):
 - {{"question": "What is DNA?", "answer": "Genetic material."}}  ❌ TOO SIMPLE
 - {{"question": "Define respiration.", "answer": "A process."}}  ❌ TOO SIMPLE  
+- Long answers over 50 words  ❌ TOO LENGTHY
 
-Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JSON array."""
+Generate ONLY concise flashcards with summarized key-point answers. Return ONLY the JSON array."""
         
         # Generate with Gemini
         try:
