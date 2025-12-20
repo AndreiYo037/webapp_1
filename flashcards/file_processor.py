@@ -299,14 +299,19 @@ def generate_flashcards_with_groq(text, num_flashcards=10):
 
         prompt = f"""You are creating {num_flashcards} educational flashcards with CONCISE answers containing key points.
 
+CRITICAL REQUIREMENT - YOU MUST FOLLOW THIS:
+**ALL ANSWERS MUST ONLY USE INFORMATION FROM THE TEXT PROVIDED BELOW. DO NOT use any external knowledge, general knowledge, or information from your training data. If information is not in the text, do not include it in the answer.**
+
 STRICT REQUIREMENTS - FOLLOW THESE EXACTLY:
 1. Each answer MUST be CONCISE (up to 150 words maximum) - summarize key points clearly
 2. Questions MUST test understanding - use "How", "Why", "Explain", "Compare", "What are the key differences"
 3. NEVER create simple "What is X?" questions with one-word answers
 4. Focus on: key processes, main differences, essential relationships, critical applications
 5. Answers should be brief but informative - cover main concepts without excessive detail
+6. **ONLY use information that is explicitly stated or clearly implied in the text below**
+7. **DO NOT add information from your general knowledge - stick strictly to the provided text**
 
-Text content:
+Text content from uploaded document:
 {text}
 
 Generate exactly {num_flashcards} flashcards in JSON format with "question" and "answer" fields.
@@ -314,24 +319,26 @@ Generate exactly {num_flashcards} flashcards in JSON format with "question" and 
 REQUIRED FORMAT - Answers must be CONCISE and summarized:
 - Question types: "How does...", "Explain why...", "What are the key differences...", "Compare...", "What are the main steps..."
 - Answers: Concise summaries with key points (up to 150 words, NOT lengthy explanations)
+- **Answers must ONLY contain information from the text above - no external knowledge**
 
-EXAMPLES OF WHAT TO CREATE:
-{{"question": "How does cellular respiration convert glucose into ATP?", "answer": "Cellular respiration converts glucose into ATP through three stages. Glycolysis breaks down glucose in the cytoplasm, producing pyruvate and some ATP. Pyruvate enters mitochondria for the Krebs cycle, producing NADH and FADH2. The electron transport chain uses these carriers to create a proton gradient, driving ATP synthesis via chemiosmosis. This produces most of the cell's ATP."}}
+EXAMPLES OF WHAT TO CREATE (based on text content):
+{{"question": "How does [process from text] work?", "answer": "[Answer using ONLY information from the text above]"}}
 
-{{"question": "What are the key differences between DNA and RNA?", "answer": "DNA is double-stranded with deoxyribose and thymine, storing genetic info in the nucleus. RNA is single-stranded with ribose and uracil, functioning as mRNA, tRNA, and rRNA for protein synthesis. DNA serves as the stable genetic blueprint, while RNA actively facilitates protein synthesis in both nucleus and cytoplasm."}}
+{{"question": "What are the key differences between [concepts from text]?", "answer": "[Answer using ONLY information from the text above]"}}
 
 EXAMPLES OF WHAT NOT TO CREATE (REJECT THESE):
 - {{"question": "What is DNA?", "answer": "Genetic material."}}  ❌ TOO SIMPLE
 - {{"question": "Define respiration.", "answer": "A process."}}  ❌ TOO SIMPLE  
+- Answers using information NOT in the text  ❌ WRONG - ONLY use text content
 - Long answers over 150 words  ❌ TOO LENGTHY
 
-Generate ONLY concise flashcards with summarized answers (up to 150 words). Return ONLY the JSON array."""
+Generate ONLY concise flashcards with summarized answers (up to 150 words) using ONLY information from the text provided. Return ONLY the JSON array."""
 
         try:
             response = client.chat.completions.create(
                 model=model,
             messages=[
-                {"role": "system", "content": "You are an expert educational content creator. You create CONCISE flashcards with summarized answers (up to 150 words) containing key points. You NEVER create simple vocabulary tests or one-word answers. Answers should be concise but informative. You always return valid JSON."},
+                {"role": "system", "content": "You are an expert educational content creator. You create CONCISE flashcards with summarized answers (up to 150 words) containing key points. CRITICAL: You MUST ONLY use information from the provided text document - NEVER use external knowledge or general information. You NEVER create simple vocabulary tests or one-word answers. Answers should be concise but informative, based ONLY on the provided text. You always return valid JSON."},
                 {"role": "user", "content": prompt}
             ],
                 temperature=0.9,  # Higher temperature for more creative, comprehensive questions
@@ -582,14 +589,19 @@ def generate_flashcards_with_gemini(text, num_flashcards=10):
         
         prompt = f"""You are creating {num_flashcards} educational flashcards with CONCISE answers containing key points.
 
+CRITICAL REQUIREMENT - YOU MUST FOLLOW THIS:
+**ALL ANSWERS MUST ONLY USE INFORMATION FROM THE TEXT PROVIDED BELOW. DO NOT use any external knowledge, general knowledge, or information from your training data. If information is not in the text, do not include it in the answer.**
+
 STRICT REQUIREMENTS - FOLLOW THESE EXACTLY:
 1. Each answer MUST be CONCISE (up to 150 words maximum) - summarize key points clearly
 2. Questions MUST test understanding - use "How", "Why", "Explain", "Compare", "What are the key differences"
 3. NEVER create simple "What is X?" questions with one-word answers
 4. Focus on: key processes, main differences, essential relationships, critical applications
 5. Answers should be brief but informative - cover main concepts without excessive detail
+6. **ONLY use information that is explicitly stated or clearly implied in the text below**
+7. **DO NOT add information from your general knowledge - stick strictly to the provided text**
 
-Text content:
+Text content from uploaded document:
 {text}
 
 Generate exactly {num_flashcards} flashcards in JSON format with "question" and "answer" fields.
@@ -597,18 +609,20 @@ Generate exactly {num_flashcards} flashcards in JSON format with "question" and 
 REQUIRED FORMAT - Answers must be CONCISE and summarized:
 - Question types: "How does...", "Explain why...", "What are the key differences...", "Compare...", "What are the main steps..."
 - Answers: Concise summaries with key points (up to 150 words, NOT lengthy explanations)
+- **Answers must ONLY contain information from the text above - no external knowledge**
 
-EXAMPLES OF WHAT TO CREATE:
-{{"question": "How does cellular respiration convert glucose into ATP?", "answer": "Cellular respiration converts glucose into ATP through three stages. Glycolysis breaks down glucose in the cytoplasm, producing pyruvate and some ATP. Pyruvate enters mitochondria for the Krebs cycle, producing NADH and FADH2. The electron transport chain uses these carriers to create a proton gradient, driving ATP synthesis via chemiosmosis. This produces most of the cell's ATP."}}
+EXAMPLES OF WHAT TO CREATE (based on text content):
+{{"question": "How does [process from text] work?", "answer": "[Answer using ONLY information from the text above]"}}
 
-{{"question": "What are the key differences between DNA and RNA?", "answer": "DNA is double-stranded with deoxyribose and thymine, storing genetic info in the nucleus. RNA is single-stranded with ribose and uracil, functioning as mRNA, tRNA, and rRNA for protein synthesis. DNA serves as the stable genetic blueprint, while RNA actively facilitates protein synthesis in both nucleus and cytoplasm."}}
+{{"question": "What are the key differences between [concepts from text]?", "answer": "[Answer using ONLY information from the text above]"}}
 
 EXAMPLES OF WHAT NOT TO CREATE (REJECT THESE):
 - {{"question": "What is DNA?", "answer": "Genetic material."}}  ❌ TOO SIMPLE
 - {{"question": "Define respiration.", "answer": "A process."}}  ❌ TOO SIMPLE  
+- Answers using information NOT in the text  ❌ WRONG - ONLY use text content
 - Long answers over 150 words  ❌ TOO LENGTHY
 
-Generate ONLY concise flashcards with summarized answers (up to 150 words). Return ONLY the JSON array."""
+Generate ONLY concise flashcards with summarized answers (up to 150 words) using ONLY information from the text provided. Return ONLY the JSON array."""
         
         # Generate with Gemini
         try:
