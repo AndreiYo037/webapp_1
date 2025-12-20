@@ -268,21 +268,30 @@ def generate_flashcards_with_groq(text, num_flashcards=10):
         max_chars = 8000  # Leave room for prompt
         if len(text) > max_chars:
             text = text[:max_chars] + "..."
-        
-        prompt = f"""Generate {num_flashcards} high-quality educational flashcards from the following text. 
-Each flashcard should have a clear, concise question and a comprehensive answer.
+
+        prompt = f"""Generate {num_flashcards} high-quality, comprehensive educational flashcards from the following text.
+
+CRITICAL REQUIREMENTS:
+- Create flashcards that test UNDERSTANDING and CONCEPTS, not just single words or definitions
+- Questions must require thoughtful, detailed answers (at least 2-3 sentences minimum)
+- Focus on: relationships, processes, explanations, comparisons, applications, and cause-effect
+- Avoid trivial questions that only test vocabulary or single-word facts
+- Each question should help the learner understand the material deeply, not just memorize terms
 
 Text content:
 {text}
 
-Generate exactly {num_flashcards} flashcards in JSON format as a list of objects, each with "question" and "answer" fields.
-Example format:
-[
-  {{"question": "What is...?", "answer": "..."}},
-  {{"question": "Explain...", "answer": "..."}}
-]
+Generate exactly {num_flashcards} comprehensive flashcards in JSON format. Each flashcard must have "question" and "answer" fields.
 
-Return ONLY the JSON array, no additional text or explanation."""
+GOOD examples (use these as inspiration):
+- {{"question": "How does photosynthesis convert light energy into chemical energy, and what are the key steps?", "answer": "Photosynthesis converts light energy into chemical energy through two main stages. In the light-dependent reactions, chlorophyll captures light energy which splits water molecules, releasing oxygen and creating ATP and NADPH. In the light-independent reactions (Calvin cycle), these energy carriers are used to combine carbon dioxide into glucose, storing the chemical energy in the glucose molecules."}}
+- {{"question": "What are the key differences between mitosis and meiosis, and when is each process used?", "answer": "Mitosis produces two identical diploid cells and is used for growth, repair, and asexual reproduction. Meiosis produces four genetically diverse haploid gametes for sexual reproduction. Key differences: meiosis involves two divisions (meiosis I and II) while mitosis has one; meiosis includes crossing over and independent assortment creating genetic variation; mitosis maintains chromosome number while meiosis halves it."}}
+
+BAD examples (DO NOT create these - they are too simple):
+- {{"question": "What is photosynthesis?", "answer": "A process."}}  (too vague, one-word answer)
+- {{"question": "Define mitosis.", "answer": "Cell division."}}  (one-word answer, no understanding)
+
+Generate comprehensive flashcards that test deep understanding. Return ONLY the JSON array, no additional text."""
 
         try:
             response = client.chat.completions.create(
