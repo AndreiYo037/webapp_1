@@ -611,8 +611,58 @@ Generate ONLY comprehensive flashcards with detailed answers. Return ONLY the JS
         if start_idx != -1 and end_idx > start_idx:
             content = content[start_idx:end_idx]
         
-        # Parse JSON
-        flashcards = json.loads(content)
+        # Parse JSON (with error recovery like Groq)
+        flashcards = None
+        try:
+            flashcards = json.loads(content)
+        except json.JSONDecodeError as json_error:
+            print(f"[WARNING] Initial JSON parse failed: {str(json_error)}")
+            print("[INFO] Attempting to fix malformed JSON...")
+            
+            # Try to fix unterminated strings by finding the last complete flashcard
+            try:
+                import re
+                # Pattern to match complete flashcard objects
+                pattern = r'\{"question"\s*:\s*"([^"]*(?:\\.[^"]*)*)"\s*,\s*"answer"\s*:\s*"([^"]*(?:\\.[^"]*)*)"\s*\}'
+                matches = re.findall(pattern, content)
+                
+                if matches:
+                    flashcards = []
+                    for question, answer in matches:
+                        # Unescape JSON strings
+                        question = question.replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
+                        answer = answer.replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
+                        flashcards.append({'question': question, 'answer': answer})
+                    print(f"[INFO] Extracted {len(flashcards)} flashcards from malformed JSON")
+                else:
+                    # Try to find complete objects by looking for balanced braces
+                    brace_count = 0
+                    last_valid_pos = 0
+                    for i, char in enumerate(content):
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                last_valid_pos = i + 1
+                    
+                    if last_valid_pos > 0:
+                        # Try parsing up to the last valid position
+                        partial_content = content[:last_valid_pos]
+                        # Ensure it's a valid array
+                        if partial_content.startswith('[') and not partial_content.rstrip().endswith(']'):
+                            partial_content = '[' + partial_content + ']'
+                        try:
+                            flashcards = json.loads(partial_content)
+                            print(f"[INFO] Parsed partial JSON (up to position {last_valid_pos})")
+                        except:
+                            pass
+            except Exception as fix_error:
+                print(f"[WARNING] JSON fix attempt failed: {str(fix_error)}")
+            
+            # If still no flashcards, raise the original error
+            if not flashcards:
+                raise json_error
         
         # Validate and format - filter out simple/short flashcards (same as Groq)
         if isinstance(flashcards, list):
