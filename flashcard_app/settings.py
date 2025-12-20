@@ -22,7 +22,18 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-producti
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',') if os.getenv('ALLOWED_HOSTS') else ['localhost', '127.0.0.1']
+# ALLOWED_HOSTS configuration
+allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '').strip()
+if allowed_hosts_env:
+    # Split by comma and strip whitespace, filter out empty strings
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
+else:
+    # Default to localhost for development
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+    
+# For production deployments, allow all hosts if '*' is specified
+if '*' in ALLOWED_HOSTS or os.getenv('ALLOW_ALL_HOSTS', 'False').lower() == 'true':
+    ALLOWED_HOSTS = ['*']
 
 
 # Application definition
