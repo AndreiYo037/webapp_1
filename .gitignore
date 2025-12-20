@@ -80,7 +80,8 @@ PrintHood/
 Recent/
 SendTo/
 Start Menu/
-Templates/
+# Windows Templates directory (not Django templates!)
+/Templates/
 
 # Personal directories (don't commit)
 .cisco/
