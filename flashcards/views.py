@@ -9,6 +9,7 @@ from PIL import Image
 
 from .models import UploadedFile, FlashcardSet, Flashcard
 from .file_processor import extract_text_from_file, summarize_text, generate_flashcards_from_text, calculate_flashcard_count, extract_first_image_from_pdf, extract_first_image_from_docx, extract_all_images_from_pdf, extract_all_images_from_docx, match_images_to_flashcards, extract_all_images_from_pdf, extract_all_images_from_docx, understand_image_with_vision
+from .visual_region_service import VisualRegionPipeline
 
 
 def index(request):
@@ -81,6 +82,72 @@ def upload_file(request):
                         title=f"Flashcards from {file_obj.filename}"
                     )
                     
+                    # Use visual region pipeline for intelligent cropping (PDF/Word only)
+                    is_image_file = file_type.startswith('image/')
+                    
+                    if not is_image_file and (file_type == 'application/pdf' or file_path.endswith('.pdf') or
+                                             file_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+                                                          'application/msword'] or file_path.endswith(('.docx', '.doc'))):
+                        try:
+                            # Extract questions for matching
+                            questions = [card['question'] for card in flashcards_data]
+                            
+                            # Process document with visual region pipeline
+                            pipeline = VisualRegionPipeline()
+                            region_matches = pipeline.process_document(file_path, file_type, questions)
+                            
+                            print(f"[INFO] Visual region pipeline matched {len(region_matches)} regions to questions")
+                            
+                            # Create flashcards with matched visual regions
+                            for idx, card_data in enumerate(flashcards_data):
+                                flashcard = Flashcard.objects.create(
+                                    flashcard_set=flashcard_set,
+                                    question=card_data['question'],
+                                    answer=card_data['answer'],
+                                    source_image=None  # Visual regions are stored in cropped_image
+                                )
+                                
+                                # Find matching region for this question
+                                matched_region = None
+                                confidence = 0.0
+                                for q_idx, region, conf in region_matches:
+                                    if q_idx == idx:
+                                        matched_region = region
+                                        confidence = conf
+                                        break
+                                
+                                # Save cropped region if found and confidence is high enough
+                                if matched_region and matched_region.image and confidence >= 0.3:
+                                    try:
+                                        # Save cropped region image
+                                        img_buffer = io.BytesIO()
+                                        matched_region.image.save(img_buffer, format='PNG')
+                                        img_buffer.seek(0)
+                                        
+                                        filename = f"flashcard_{flashcard.id}_region_{matched_region.region_type}.png"
+                                        flashcard.cropped_image.save(
+                                            filename,
+                                            ContentFile(img_buffer.getvalue()),
+                                            save=True
+                                        )
+                                        print(f"[SUCCESS] Saved {matched_region.region_type} region for flashcard {idx+1} (confidence: {confidence:.2f})")
+                                    except Exception as e:
+                                        print(f"[WARNING] Failed to save region for flashcard {idx+1}: {str(e)}")
+                                else:
+                                    if matched_region:
+                                        print(f"[INFO] Skipped region for flashcard {idx+1} (low confidence: {confidence:.2f})")
+                            
+                            # Skip the old image matching logic
+                            word_count = len(text.split())
+                            messages.success(request, f'File processed successfully! Created {len(flashcards_data)} flashcards from {word_count:,} words of content.')
+                            return redirect('view_flashcards', set_id=flashcard_set.id)
+                            
+                        except Exception as e:
+                            print(f"[WARNING] Visual region pipeline failed: {str(e)}, falling back to standard image matching")
+                            import traceback
+                            traceback.print_exc()
+                    
+                    # Fallback to standard image matching for image files or if pipeline fails
                     # Determine if source file is an image or contains extractable images
                     is_image_file = file_type.startswith('image/')
                     extracted_image_files = []
@@ -161,6 +228,7 @@ def upload_file(request):
                             matched_image = extracted_image_files[img_idx]
                             print(f"[INFO] Flashcard {idx+1} fallback: using image {img_idx+1} ({matched_image.filename})")
                         
+                        # Create flashcard
                         Flashcard.objects.create(
                             flashcard_set=flashcard_set,
                             question=card_data['question'],
@@ -241,107 +309,3 @@ def list_flashcard_sets(request):
     })
 
 
-def crop_flashcard_image(request, flashcard_id):
-    """Handle image cropping for a flashcard"""
-    if request.method == 'POST':
-        flashcard = get_object_or_404(Flashcard, id=flashcard_id)
-        
-        try:
-            import json
-            
-            # Get crop data from request body (JSON)
-            try:
-                crop_data = json.loads(request.body.decode('utf-8'))
-            except (json.JSONDecodeError, UnicodeDecodeError):
-                # Try form data as fallback
-                crop_data = {
-                    'x': request.POST.get('x', 0),
-                    'y': request.POST.get('y', 0),
-                    'width': request.POST.get('width', 0),
-                    'height': request.POST.get('height', 0),
-                }
-            
-            x = int(float(crop_data.get('x', 0)))
-            y = int(float(crop_data.get('y', 0)))
-            width = int(float(crop_data.get('width', 0)))
-            height = int(float(crop_data.get('height', 0)))
-            
-            # Get the source image
-            if not flashcard.source_image or not flashcard.source_image.file:
-                if request.headers.get('Content-Type', '').startswith('application/json'):
-                    from django.http import JsonResponse
-                    return JsonResponse({'error': 'No source image available for cropping.'}, status=400)
-                messages.error(request, 'No source image available for cropping.')
-                return redirect('view_flashcards', set_id=flashcard.flashcard_set.id)
-            
-            source_image_path = flashcard.source_image.file.path
-            
-            # Open and crop the image
-            img = Image.open(source_image_path)
-            
-            # Ensure crop coordinates are within image bounds
-            img_width, img_height = img.size
-            x = max(0, min(x, img_width))
-            y = max(0, min(y, img_height))
-            width = min(width, img_width - x)
-            height = min(height, img_height - y)
-            
-            if width <= 0 or height <= 0:
-                if request.headers.get('Content-Type', '').startswith('application/json'):
-                    from django.http import JsonResponse
-                    return JsonResponse({'error': 'Invalid crop dimensions.'}, status=400)
-                messages.error(request, 'Invalid crop dimensions.')
-                return redirect('view_flashcards', set_id=flashcard.flashcard_set.id)
-            
-            # Crop the image
-            cropped_img = img.crop((x, y, x + width, y + height))
-            
-            # Save cropped image
-            img_buffer = io.BytesIO()
-            cropped_img.save(img_buffer, format='PNG')
-            img_buffer.seek(0)
-            
-            # Save to flashcard's cropped_image field
-            filename = f"flashcard_{flashcard_id}_crop.png"
-            flashcard.cropped_image.save(
-                filename,
-                ContentFile(img_buffer.getvalue()),
-                save=True
-            )
-            
-            if request.headers.get('Content-Type', '').startswith('application/json'):
-                from django.http import JsonResponse
-                return JsonResponse({'success': True, 'message': 'Image cropped successfully!'})
-            
-            messages.success(request, 'Image cropped successfully!')
-            return redirect('view_flashcards', set_id=flashcard.flashcard_set.id)
-            
-        except Exception as e:
-            if request.headers.get('Content-Type', '').startswith('application/json'):
-                from django.http import JsonResponse
-                return JsonResponse({'error': f'Error cropping image: {str(e)}'}, status=500)
-            messages.error(request, f'Error cropping image: {str(e)}')
-            return redirect('view_flashcards', set_id=flashcard.flashcard_set.id)
-    
-    return redirect('view_flashcards', set_id=flashcard.flashcard_set.id)
-
-
-def remove_cropped_image(request, flashcard_id):
-    """Remove cropped image from a flashcard"""
-    if request.method == 'POST':
-        flashcard = get_object_or_404(Flashcard, id=flashcard_id)
-        
-        if flashcard.cropped_image:
-            flashcard.cropped_image.delete()
-            flashcard.save()
-            if request.headers.get('Content-Type', '').startswith('application/json'):
-                from django.http import JsonResponse
-                return JsonResponse({'success': True, 'message': 'Cropped image removed.'})
-            messages.success(request, 'Cropped image removed.')
-        else:
-            if request.headers.get('Content-Type', '').startswith('application/json'):
-                from django.http import JsonResponse
-                return JsonResponse({'info': 'No cropped image to remove.'})
-            messages.info(request, 'No cropped image to remove.')
-    
-    return redirect('view_flashcards', set_id=flashcard.flashcard_set.id)

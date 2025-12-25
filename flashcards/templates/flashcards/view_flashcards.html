@@ -21,41 +21,25 @@
                         <h3>Question {{ forloop.counter }}</h3>
                         <p style="font-size: 1.2em; margin-top: 10px; margin-bottom: 10px;">{{ flashcard.question }}</p>
                         {% if flashcard.cropped_image %}
-                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
+                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                                 <img src="{{ flashcard.cropped_image.url }}" 
-                                     alt="Cropped diagram for question" 
-                                     id="img-{{ flashcard.id }}"
+                                     alt="Auto-cropped diagram for question" 
                                      onerror="this.style.display='none'">
-                                <button onclick="removeCrop({{ flashcard.id }})" class="btn-crop-remove" title="Remove cropped image">
-                                    ✕
-                                </button>
                             </div>
                         {% elif flashcard.source_image %}
                             {% if flashcard.source_image.file %}
-                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
+                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                                 <img src="{{ flashcard.source_image.file.url }}" 
                                      alt="Diagram for question" 
-                                     id="img-{{ flashcard.id }}"
-                                     class="cropable-image"
-                                     data-flashcard-id="{{ flashcard.id }}"
                                      onerror="this.style.display='none'">
-                                <button onclick="openCropModal({{ flashcard.id }}, '{{ flashcard.source_image.file.url }}')" class="btn-crop" title="Crop image">
-                                    ✂️ Crop
-                                </button>
                             </div>
                             {% endif %}
                         {% elif source_file_is_image %}
                             {% if flashcard_set.file.file %}
-                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
+                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                                 <img src="{{ flashcard_set.file.file.url }}" 
                                      alt="Diagram for question" 
-                                     id="img-{{ flashcard.id }}"
-                                     class="cropable-image"
-                                     data-flashcard-id="{{ flashcard.id }}"
                                      onerror="this.style.display='none'">
-                                <button onclick="openCropModal({{ flashcard.id }}, '{{ flashcard_set.file.file.url }}')" class="btn-crop" title="Crop image">
-                                    ✂️ Crop
-                                </button>
                             </div>
                             {% endif %}
                         {% endif %}
@@ -68,7 +52,7 @@
                         {% if flashcard.cropped_image %}
                             <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                                 <img src="{{ flashcard.cropped_image.url }}" 
-                                     alt="Cropped diagram reference" 
+                                     alt="Auto-cropped diagram reference" 
                                      style="opacity: 0.7;"
                                      onerror="this.style.display='none'">
                             </div>
@@ -104,167 +88,12 @@
     </div>
 </div>
 
-<!-- Cropper.js CSS -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
-
 <script>
 function flipCard(id) {
     const card = document.getElementById('flashcard-' + id);
     card.classList.toggle('flipped');
 }
-
-let currentCropper = null;
-let currentFlashcardId = null;
-
-function openCropModal(flashcardId, imageUrl) {
-    currentFlashcardId = flashcardId;
-    
-    // Create modal
-    const modal = document.createElement('div');
-    modal.id = 'crop-modal';
-    modal.innerHTML = `
-        <div class="crop-modal-content">
-            <div class="crop-modal-header">
-                <h3>Crop Image for Question</h3>
-                <button onclick="closeCropModal()" class="btn-close">&times;</button>
-            </div>
-            <div class="crop-modal-body">
-                <img id="crop-image" src="${imageUrl}" style="max-width: 100%; max-height: 70vh;">
-            </div>
-            <div class="crop-modal-footer">
-                <button onclick="closeCropModal()" class="btn btn-secondary">Cancel</button>
-                <button onclick="applyCrop()" class="btn btn-primary">Apply Crop</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    
-    // Initialize cropper
-    setTimeout(() => {
-        const image = document.getElementById('crop-image');
-        currentCropper = new Cropper(image, {
-            aspectRatio: NaN, // Free aspect ratio
-            viewMode: 1,
-            dragMode: 'move',
-            autoCropArea: 0.8,
-            restore: false,
-            guides: true,
-            center: true,
-            highlight: false,
-            cropBoxMovable: true,
-            cropBoxResizable: true,
-            toggleDragModeOnDblclick: false,
-        });
-    }, 100);
-}
-
-function closeCropModal() {
-    if (currentCropper) {
-        currentCropper.destroy();
-        currentCropper = null;
-    }
-    const modal = document.getElementById('crop-modal');
-    if (modal) {
-        modal.remove();
-    }
-    currentFlashcardId = null;
-}
-
-function applyCrop() {
-    if (!currentCropper || !currentFlashcardId) {
-        return;
-    }
-    
-    const canvas = currentCropper.getCroppedCanvas({
-        width: 800,
-        height: 800,
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high',
-    });
-    
-    if (!canvas) {
-        alert('Error creating cropped image');
-        return;
-    }
-    
-    // Get crop data
-    const cropData = currentCropper.getData();
-    
-    // Convert canvas to blob and send to server
-    canvas.toBlob((blob) => {
-        const formData = new FormData();
-        formData.append('x', Math.round(cropData.x));
-        formData.append('y', Math.round(cropData.y));
-        formData.append('width', Math.round(cropData.width));
-        formData.append('height', Math.round(cropData.height));
-        
-        // Send crop data to server
-        fetch(`/flashcard/${currentFlashcardId}/crop/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-            },
-            body: JSON.stringify({
-                x: Math.round(cropData.x),
-                y: Math.round(cropData.y),
-                width: Math.round(cropData.width),
-                height: Math.round(cropData.height),
-            }),
-        })
-        .then(response => {
-            if (response.ok) {
-                window.location.reload();
-            } else {
-                alert('Error cropping image');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error cropping image');
-        });
-    }, 'image/png');
-}
-
-function removeCrop(flashcardId) {
-    if (confirm('Remove cropped image and use original?')) {
-        fetch(`/flashcard/${flashcardId}/remove-crop/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-            },
-        })
-        .then(response => {
-            if (response.ok) {
-                window.location.reload();
-            } else {
-                alert('Error removing cropped image');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error removing cropped image');
-        });
-    }
-}
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
 </script>
-
-<!-- Cropper.js JS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
 <style>
 #flashcard-container {
@@ -379,102 +208,6 @@ function getCookie(name) {
 
 #flashcard-container .flashcard button:hover {
     background: rgba(255, 255, 255, 0.3);
-}
-
-.btn-crop, .btn-crop-remove {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    z-index: 100;
-    transition: background 0.2s;
-}
-
-.btn-crop:hover, .btn-crop-remove:hover {
-    background: rgba(0, 0, 0, 0.9);
-}
-
-.btn-crop-remove {
-    background: rgba(220, 53, 69, 0.8);
-}
-
-.btn-crop-remove:hover {
-    background: rgba(220, 53, 69, 1);
-}
-
-#crop-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.crop-modal-content {
-    background: white;
-    border-radius: 12px;
-    width: 90%;
-    max-width: 900px;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-}
-
-.crop-modal-header {
-    padding: 20px;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.crop-modal-header h3 {
-    margin: 0;
-}
-
-.btn-close {
-    background: none;
-    border: none;
-    font-size: 28px;
-    cursor: pointer;
-    color: #666;
-    padding: 0;
-    width: 30px;
-    height: 30px;
-    line-height: 30px;
-}
-
-.btn-close:hover {
-    color: #000;
-}
-
-.crop-modal-body {
-    padding: 20px;
-    overflow: auto;
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.crop-modal-footer {
-    padding: 20px;
-    border-top: 1px solid #eee;
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
 }
 </style>
 {% endblock %}

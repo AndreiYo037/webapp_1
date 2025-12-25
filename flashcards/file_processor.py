@@ -422,6 +422,161 @@ def extract_text_from_image_ocr(file_path):
         return None
 
 
+def auto_crop_image_for_question(image_path, question_text):
+    """
+    Automatically crop an image to show only the region relevant to a specific question
+    Uses AI vision to identify the relevant region and crops it
+    Returns cropped PIL Image or None if cropping fails
+    """
+    try:
+        from openai import OpenAI
+        import base64
+        from PIL import Image
+        
+        # Check if Groq API key is configured
+        api_key = getattr(settings, 'GROQ_API_KEY', '')
+        if not api_key or not isinstance(api_key, str) or api_key.strip() == '':
+            print("[WARNING] Groq API key not found - auto-cropping unavailable")
+            return None
+        
+        vision_model = getattr(settings, 'GROQ_VISION_MODEL', 'llava-v1.5-7b-4096-preview')
+        model = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
+        
+        client = OpenAI(
+            api_key=api_key,
+            base_url='https://api.groq.com/openai/v1'
+        )
+        
+        # Open and prepare image
+        image = Image.open(image_path)
+        img_width, img_height = image.size
+        
+        # Convert to RGB if necessary
+        if image.mode != 'RGB':
+            rgb_image = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'RGBA':
+                rgb_image.paste(image, mask=image.split()[3])
+            else:
+                rgb_image.paste(image)
+            image = rgb_image
+        
+        # Save image to bytes and encode to base64
+        import io
+        image_buffer = io.BytesIO()
+        image.save(image_buffer, format='PNG')
+        image_bytes = image_buffer.getvalue()
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Create prompt to identify relevant region
+        prompt = f"""Analyze this image and identify the SPECIFIC REGION that is most relevant to answering this question:
+
+QUESTION: {question_text}
+
+Your task:
+1. Identify which part/region of the image directly relates to this question
+2. Describe the location of this region (e.g., "top-left", "center", "bottom-right", "left side", etc.)
+3. Estimate the approximate coordinates as percentages:
+   - x_percent: horizontal position (0-100, where 0 is left edge, 100 is right edge)
+   - y_percent: vertical position (0-100, where 0 is top edge, 100 is bottom edge)
+   - width_percent: width of relevant region (0-100)
+   - height_percent: height of relevant region (0-100)
+
+If the ENTIRE image is relevant, return: x_percent=0, y_percent=0, width_percent=100, height_percent=100
+
+Return ONLY a JSON object with these exact fields:
+{{"x_percent": <number>, "y_percent": <number>, "width_percent": <number>, "height_percent": <number>, "reason": "<brief explanation>"}}
+
+Example: {{"x_percent": 10, "y_percent": 20, "width_percent": 60, "height_percent": 50, "reason": "The relevant graph is in the top-left portion"}}"""
+        
+        try:
+            response = client.chat.completions.create(
+                model=vision_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are an expert at analyzing images and identifying specific regions. You always return valid JSON with x_percent, y_percent, width_percent, height_percent, and reason fields."
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": prompt
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{image_base64}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                temperature=0.3,
+                max_tokens=500
+            )
+            
+            content = response.choices[0].message.content.strip()
+            
+            # Extract JSON
+            start_idx = content.find('{')
+            end_idx = content.rfind('}') + 1
+            
+            if start_idx != -1 and end_idx > start_idx:
+                content = content[start_idx:end_idx]
+                crop_data = json.loads(content)
+                
+                # Convert percentages to pixel coordinates
+                x = int((crop_data.get('x_percent', 0) / 100) * img_width)
+                y = int((crop_data.get('y_percent', 0) / 100) * img_height)
+                width = int((crop_data.get('width_percent', 100) / 100) * img_width)
+                height = int((crop_data.get('height_percent', 100) / 100) * img_height)
+                
+                # Ensure coordinates are within bounds
+                x = max(0, min(x, img_width))
+                y = max(0, min(y, img_height))
+                width = min(width, img_width - x)
+                height = min(height, img_height - y)
+                
+                # Add some padding (10% on each side) to include context
+                padding_x = int(width * 0.1)
+                padding_y = int(height * 0.1)
+                x = max(0, x - padding_x)
+                y = max(0, y - padding_y)
+                width = min(img_width - x, width + (2 * padding_x))
+                height = min(img_height - y, height + (2 * padding_y))
+                
+                if width > 0 and height > 0:
+                    # Only crop if the region is significantly smaller than the full image (at least 20% smaller)
+                    crop_area = width * height
+                    full_area = img_width * img_height
+                    if crop_area < full_area * 0.8:  # Only crop if region is less than 80% of full image
+                        # Crop the image
+                        cropped = image.crop((x, y, x + width, y + height))
+                        print(f"[INFO] Auto-cropped image: region at ({x}, {y}) size {width}x{height} ({int(crop_area/full_area*100)}% of original), reason: {crop_data.get('reason', 'N/A')}")
+                        return cropped
+                    else:
+                        print(f"[INFO] Identified region is too large ({int(crop_area/full_area*100)}% of image), using full image")
+                        return None  # Return None to indicate no cropping needed
+                else:
+                    print("[WARNING] Invalid crop dimensions, skipping crop")
+                    return None
+            else:
+                print("[WARNING] Could not parse crop coordinates, skipping crop")
+                return None
+                
+        except Exception as api_error:
+            print(f"[WARNING] Auto-crop API call failed: {str(api_error)}")
+            return None  # Return None to indicate cropping failed, use full image
+    
+    except ImportError:
+        print("[WARNING] OpenAI library not installed. Auto-cropping unavailable.")
+        return None
+    except Exception as e:
+        print(f"[WARNING] Auto-crop failed: {str(e)}")
+        return None
+
+
 def understand_image_with_vision(file_path):
     """
     Understand images and diagrams using vision models (Groq Vision API)

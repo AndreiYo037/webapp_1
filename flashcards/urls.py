@@ -7,8 +7,6 @@ urlpatterns = [
     path('file/<int:file_id>/', views.view_file, name='view_file'),
     path('files/', views.list_files, name='list_files'),
     path('flashcards/<int:set_id>/', views.view_flashcards, name='view_flashcards'),
-    path('flashcard/<int:flashcard_id>/crop/', views.crop_flashcard_image, name='crop_flashcard_image'),
-    path('flashcard/<int:flashcard_id>/remove-crop/', views.remove_cropped_image, name='remove_cropped_image'),
     path('sets/', views.list_flashcard_sets, name='list_sets'),
 ]
 
