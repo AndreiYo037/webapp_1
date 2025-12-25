@@ -19,22 +19,20 @@
                 <div class="flashcard-front">
                     <div>
                         <h3>Question {{ forloop.counter }}</h3>
-                        <p style="font-size: 1.2em; margin-top: 20px;">{{ flashcard.question }}</p>
+                        <p style="font-size: 1.2em; margin-top: 10px; margin-bottom: 10px;">{{ flashcard.question }}</p>
                         {% if flashcard.source_image %}
                             {% if flashcard.source_image.file %}
-                            <div style="margin-top: 20px; text-align: center;">
+                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                                 <img src="{{ flashcard.source_image.file.url }}" 
                                      alt="Diagram for question" 
-                                     style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
                                      onerror="this.style.display='none'">
                             </div>
                             {% endif %}
                         {% elif source_file_is_image %}
                             {% if flashcard_set.file.file %}
-                            <div style="margin-top: 20px; text-align: center;">
+                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                                 <img src="{{ flashcard_set.file.file.url }}" 
                                      alt="Diagram for question" 
-                                     style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
                                      onerror="this.style.display='none'">
                             </div>
                             {% endif %}
@@ -44,22 +42,22 @@
                 <div class="flashcard-back">
                     <div>
                         <h3>Answer</h3>
-                        <p style="font-size: 1.1em; margin-top: 20px;">{{ flashcard.answer }}</p>
+                        <p style="font-size: 1.1em; margin-top: 10px; margin-bottom: 10px;">{{ flashcard.answer }}</p>
                         {% if flashcard.source_image %}
                             {% if flashcard.source_image.file %}
-                            <div style="margin-top: 20px; text-align: center;">
+                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                                 <img src="{{ flashcard.source_image.file.url }}" 
                                      alt="Diagram reference" 
-                                     style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); opacity: 0.7;"
+                                     style="opacity: 0.7;"
                                      onerror="this.style.display='none'">
                             </div>
                             {% endif %}
                         {% elif source_file_is_image %}
                             {% if flashcard_set.file.file %}
-                            <div style="margin-top: 20px; text-align: center;">
+                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                                 <img src="{{ flashcard_set.file.file.url }}" 
                                      alt="Diagram reference" 
-                                     style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); opacity: 0.7;"
+                                     style="opacity: 0.7;"
                                      onerror="this.style.display='none'">
                             </div>
                             {% endif %}
@@ -92,10 +90,63 @@ function flipCard(id) {
     margin-top: 20px;
 }
 
+.flashcard {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.flashcard-inner {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.flashcard-front,
+.flashcard-back {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 400px;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+.flashcard-front > div,
+.flashcard-back > div {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.flashcard-front h3,
+.flashcard-back h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.1em;
+    flex-shrink: 0;
+}
+
+.flashcard-front p,
+.flashcard-back p {
+    margin: 0 0 15px 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    flex-shrink: 0;
+    line-height: 1.5;
+}
+
 .flashcard img {
-    max-height: 300px;
+    max-width: 100%;
+    max-height: 250px;
+    width: auto;
+    height: auto;
     object-fit: contain;
     margin: 10px 0;
+    flex-shrink: 1;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .flashcard-front img,
@@ -106,7 +157,12 @@ function flipCard(id) {
 
 .flashcard-front img:hover,
 .flashcard-back img:hover {
-    transform: scale(1.05);
+    transform: scale(1.02);
+}
+
+.flashcard button {
+    flex-shrink: 0;
+    margin-top: 15px;
 }
 </style>
 {% endblock %}
