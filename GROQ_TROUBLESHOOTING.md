@@ -152,3 +152,4 @@ To test if Groq is working:
 
 **The app will automatically fall back to rule-based generation if Groq fails, so it will still work!**
 
+

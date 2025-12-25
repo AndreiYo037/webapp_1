@@ -156,3 +156,4 @@ That's it! Groq will be used automatically.
 
 **The app defaults to Groq (cloud) if nothing is set, so you're safe!** ☁️
 
+

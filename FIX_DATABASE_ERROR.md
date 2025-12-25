@@ -94,3 +94,4 @@ If migrations still don't run:
 3. **Try manual migration** via shell/console
 4. **Check database connection** (if using external DB)
 
+

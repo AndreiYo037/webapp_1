@@ -5,9 +5,9 @@
 {% block content %}
 <div class="card">
     <h2>Welcome to Flashcard Generator!</h2>
-    <p>Upload any text-based file (PDF, Word, Excel, or plain text) and we'll automatically:</p>
+    <p>Upload any file (text documents, PDFs, Word, Excel, or images with diagrams) and we'll automatically:</p>
     <ul style="margin: 20px 0; padding-left: 30px;">
-        <li>Extract and summarize the content</li>
+        <li>Extract and analyze content (including text and visual diagrams)</li>
         <li>Generate interactive flashcards</li>
         <li>Study with flipable flashcard cards</li>
     </ul>
@@ -16,12 +16,14 @@
         <h3>📤 Upload Your File</h3>
         <form method="post" action="{% url 'upload_file' %}" enctype="multipart/form-data">
             {% csrf_token %}
-            <input type="file" name="file" accept=".txt,.pdf,.doc,.docx,.xls,.xlsx" required>
+            <input type="file" name="file" accept=".txt,.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.webp" required>
             <br>
             <button type="submit" class="btn">Generate Flashcards</button>
         </form>
         <p style="margin-top: 15px; color: #6c757d;">
-            Supported formats: TXT, PDF, DOC, DOCX, XLS, XLSX
+            Supported formats: TXT, PDF, DOC, DOCX, XLS, XLSX, PNG, JPG, JPEG, GIF, BMP, WEBP
+            <br>
+            <small style="color: #999;">📸 Images: OCR text extraction + AI diagram understanding</small>
         </p>
     </div>
 </div>
@@ -59,4 +61,3 @@
 </div>
 {% endif %}
 {% endblock %}
-

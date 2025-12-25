@@ -75,3 +75,4 @@ python manage.py migrate
 
 Enjoy your flashcard app! 🎉
 
+

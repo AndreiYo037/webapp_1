@@ -32,9 +32,158 @@ def safe_str(obj):
             return "Unable to encode text (encoding issue)"
 
 
+def extract_text_from_image_ocr(file_path):
+    """
+    Extract text from image using OCR (Optical Character Recognition)
+    Uses pytesseract/Tesseract for text extraction
+    """
+    try:
+        from PIL import Image
+        import pytesseract
+        
+        # Open image
+        image = Image.open(file_path)
+        
+        # Convert to RGB if necessary (some formats like PNG might have RGBA)
+        if image.mode != 'RGB':
+            # Create a white background and paste the image
+            rgb_image = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'RGBA':
+                rgb_image.paste(image, mask=image.split()[3])  # Use alpha channel as mask
+            else:
+                rgb_image.paste(image)
+            image = rgb_image
+        
+        # Extract text using OCR
+        text = pytesseract.image_to_string(image, lang='eng')
+        return text.strip()
+    
+    except ImportError:
+        print("[WARNING] pytesseract not installed. OCR unavailable. Install with: pip install pytesseract")
+        return None
+    except Exception as e:
+        error_msg = safe_str(e)
+        print(f"[WARNING] OCR extraction failed: {error_msg}")
+        return None
+
+
+def understand_image_with_vision(file_path):
+    """
+    Understand images and diagrams using vision models (Groq Vision API)
+    Returns a description of the image including diagram analysis
+    """
+    try:
+        from openai import OpenAI
+        import base64
+        from PIL import Image
+        
+        # Check if Groq API key is configured
+        api_key = getattr(settings, 'GROQ_API_KEY', '')
+        if not api_key or not isinstance(api_key, str) or api_key.strip() == '':
+            print("[WARNING] Groq API key not found - vision analysis unavailable")
+            return None
+        
+        # Groq vision model (supports image input)
+        vision_model = getattr(settings, 'GROQ_VISION_MODEL', 'llava-v1.5-7b-4096-preview')
+        print(f"[INFO] Using Groq Vision model: {vision_model} for image analysis")
+        
+        # Create Groq client (OpenAI-compatible API)
+        client = OpenAI(
+            api_key=api_key,
+            base_url='https://api.groq.com/openai/v1'
+        )
+        
+        # Open and prepare image
+        image = Image.open(file_path)
+        
+        # Convert to RGB if necessary
+        if image.mode != 'RGB':
+            rgb_image = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'RGBA':
+                rgb_image.paste(image, mask=image.split()[3])
+            else:
+                rgb_image.paste(image)
+            image = rgb_image
+        
+        # Save image to bytes and encode to base64
+        import io
+        image_buffer = io.BytesIO()
+        image.save(image_buffer, format='PNG')
+        image_bytes = image_buffer.getvalue()
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Create prompt for diagram understanding
+        prompt = """Analyze this image in detail. If it contains a diagram, chart, flowchart, or any visual representation:
+1. Describe all text labels, annotations, and captions you can see
+2. Explain the structure, relationships, and connections shown
+3. Identify key concepts, processes, or data represented
+4. Describe any arrows, lines, shapes, or symbols and what they represent
+5. Summarize the main purpose and meaning of the diagram
+
+Provide a comprehensive description that would be useful for creating educational flashcards. Be specific about what is shown in the image, including all details that would help someone understand the content without seeing the image."""
+
+        # Generate description using Groq vision model
+        try:
+            response = client.chat.completions.create(
+                model=vision_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are an expert at analyzing diagrams, charts, and visual representations. Provide detailed, comprehensive descriptions that help understand the visual content."
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": prompt
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{image_base64}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                temperature=0.7,
+                max_tokens=2000
+            )
+            
+            description = response.choices[0].message.content.strip()
+            return description
+        except Exception as api_error:
+            error_str = str(api_error).lower()
+            error_type = type(api_error).__name__
+            
+            print(f"[ERROR] Groq Vision API call failed - Type: {error_type}, Error: {str(api_error)}")
+            
+            # Check for specific error types
+            if 'quota' in error_str or 'rate limit' in error_str or '429' in error_str:
+                print(f"[ERROR] Groq quota/rate limit exceeded: {str(api_error)}")
+            elif '401' in error_str or 'unauthorized' in error_str or ('invalid' in error_str and 'key' in error_str):
+                print(f"[ERROR] Groq API key invalid or unauthorized: {str(api_error)}")
+            elif 'model' in error_str and ('not found' in error_str or 'invalid' in error_str or 'unavailable' in error_str):
+                print(f"[ERROR] Groq vision model '{vision_model}' not available: {str(api_error)}")
+                print("[INFO] Try a different vision model or check Groq documentation for available models.")
+            else:
+                print(f"[ERROR] Groq vision analysis error (unexpected): {str(api_error)}")
+            
+            return None
+    
+    except ImportError:
+        print("[WARNING] OpenAI library not installed. Vision analysis unavailable. Install with: pip install openai")
+        return None
+    except Exception as e:
+        error_msg = safe_str(e)
+        print(f"[WARNING] Vision analysis failed: {error_msg}")
+        return None
+
+
 def extract_text_from_file(file_path, file_type):
     """
-    Extract text content from various file types
+    Extract text content from various file types including images
     Returns the extracted text as a string
     """
     text = ""
@@ -75,6 +224,31 @@ def extract_text_from_file(file_path, file_type):
                         text += " ".join([str(cell) if cell else "" for cell in row]) + "\n"
             except ImportError:
                 text = "Excel processing requires openpyxl. Please install it."
+        
+        # Image file types - use OCR and Vision API
+        elif file_type in ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/bmp', 'image/webp'] or \
+             file_path.endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
+            print("[INFO] Processing image file with OCR and vision analysis...")
+            
+            # Combine OCR text extraction and vision understanding
+            ocr_text = extract_text_from_image_ocr(file_path)
+            vision_description = understand_image_with_vision(file_path)
+            
+            # Combine both sources of information
+            parts = []
+            if vision_description:
+                parts.append("=== Visual Diagram Analysis ===\n" + vision_description)
+            if ocr_text and len(ocr_text.strip()) > 0:
+                parts.append("\n=== Extracted Text from Image ===\n" + ocr_text)
+            
+            if parts:
+                text = "\n\n".join(parts)
+            else:
+                # If both fail, provide helpful message
+                text = "Unable to extract text or analyze image. Please ensure:\n" + \
+                       "1. pytesseract is installed (pip install pytesseract)\n" + \
+                       "2. Tesseract OCR is installed on your system\n" + \
+                       "3. Gemini API key is configured for vision analysis (optional but recommended)"
         
         else:
             # Try to read as plain text

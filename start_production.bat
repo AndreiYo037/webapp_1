@@ -31,3 +31,4 @@ echo.
 
 gunicorn flashcard_app.wsgi --bind 0.0.0.0:8000
 
+

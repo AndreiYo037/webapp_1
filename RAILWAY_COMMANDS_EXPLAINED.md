@@ -61,3 +61,4 @@ gunicorn flashcard_app.wsgi --log-file -
 
 Set it to: `python manage.py migrate --noinput`
 
+

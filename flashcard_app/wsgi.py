@@ -16,3 +16,4 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'flashcard_app.settings')
 application = get_wsgi_application()
 
 
+

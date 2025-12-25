@@ -103,3 +103,4 @@ LLM_PROVIDER=ollama
 
 **Gemini is now integrated and ready to use!** 🚀
 
+

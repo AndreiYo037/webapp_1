@@ -44,3 +44,4 @@ The app **defaults to Groq** if `LLM_PROVIDER` is not set, so you're already usi
 
 **Groq is now the default and will be used automatically!** 🚀
 
+

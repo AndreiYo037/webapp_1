@@ -53,9 +53,11 @@ def upload_file(request):
             file_path = file_obj.file.path
             text = extract_text_from_file(file_path, file_type)
             
-            if not text or len(text.strip()) < 50:
-                messages.warning(request, 'File processed but contains very little text content.')
-                file_obj.summary = "File contains minimal text content."
+            # For images, allow shorter content (OCR + vision description combined)
+            min_length = 30 if file_type.startswith('image/') else 50
+            if not text or len(text.strip()) < min_length:
+                messages.warning(request, 'File processed but contains very little extractable content.')
+                file_obj.summary = "File contains minimal extractable content."
             else:
                 # Generate summary
                 summary = summarize_text(text)

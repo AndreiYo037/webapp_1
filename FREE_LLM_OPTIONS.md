@@ -127,3 +127,4 @@ ollama run llama3 "Generate a flashcard question about Python programming"
 
 Then, if you need cloud-based access or want to try other models, you can add Hugging Face or Google Gemini as alternatives.
 
+
