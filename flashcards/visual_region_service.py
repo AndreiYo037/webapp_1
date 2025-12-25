@@ -340,9 +340,7 @@ class SemanticMatcher:
             print("[SUCCESS] Embedding model loaded")
             
         except ImportError:
-            print("[INFO] sentence-transformers not installed. Using fallback matching (round-robin).")
-            print("[INFO] Note: Installing sentence-transformers requires ~8GB and may exceed deployment limits.")
-            print("[INFO] The system works fine without it - images will be distributed round-robin.")
+            print("[WARNING] sentence-transformers not installed. Install with: pip install sentence-transformers")
             self.model = None
         except Exception as e:
             print(f"[WARNING] Failed to load embedding model: {str(e)}")
