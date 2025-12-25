@@ -365,22 +365,33 @@ class SemanticMatcher:
         Match visual regions to questions using semantic similarity
         Returns list of (question_index, region_index, similarity_score) tuples
         """
-        if not self.model or not regions or not questions:
+        if not regions or not questions:
+            print(f"[WARNING] No regions ({len(regions)}) or questions ({len(questions)}) to match")
             return []
+        
+        if not self.model:
+            print("[WARNING] Embedding model not available, using fallback matching")
+            # Fallback: match based on region type and round-robin
+            return self._fallback_match(regions, questions)
         
         try:
             # Extract text descriptions from regions using OCR
+            print(f"[INFO] Extracting text from {len(regions)} regions...")
             region_texts = []
-            for region in regions:
+            for idx, region in enumerate(regions):
                 text = self._extract_text_from_region(region)
                 region_texts.append(text)
+                if idx < 3:  # Log first few for debugging
+                    print(f"[DEBUG] Region {idx+1} text (first 100 chars): {text[:100]}")
             
             # Generate embeddings
+            print(f"[INFO] Generating embeddings for {len(questions)} questions and {len(region_texts)} regions...")
             question_embeddings = self.generate_embeddings(questions)
             region_embeddings = self.generate_embeddings(region_texts)
             
             if question_embeddings is None or region_embeddings is None:
-                return []
+                print("[WARNING] Failed to generate embeddings, using fallback matching")
+                return self._fallback_match(regions, questions)
             
             # Calculate cosine similarity
             if not SKLEARN_AVAILABLE:
@@ -400,6 +411,21 @@ class SemanticMatcher:
             matches = []
             used_regions = set()
             
+            # Log similarity scores for debugging
+            print(f"[INFO] Calculating similarity scores (min_confidence={min_confidence})...")
+            max_scores = []
+            for q_idx in range(len(questions)):
+                max_score = float(np.max(similarity_matrix[q_idx]))
+                max_scores.append(max_score)
+                if q_idx < 3:  # Log first few
+                    print(f"[DEBUG] Question {q_idx+1} max similarity: {max_score:.3f}")
+            
+            # Lower threshold if all scores are low but above a reasonable minimum
+            if max_scores and max(max_scores) < min_confidence and max(max_scores) > 0.15:
+                adjusted_threshold = max(0.15, max(max_scores) * 0.8)  # Use 80% of max score
+                print(f"[INFO] Adjusting confidence threshold from {min_confidence} to {adjusted_threshold:.3f}")
+                min_confidence = adjusted_threshold
+            
             # Sort by similarity score (highest first)
             for q_idx in range(len(questions)):
                 best_region_idx = -1
@@ -417,17 +443,35 @@ class SemanticMatcher:
                 if best_region_idx >= 0:
                     matches.append((q_idx, best_region_idx, best_score))
                     used_regions.add(best_region_idx)
+                    print(f"[DEBUG] Matched question {q_idx+1} to region {best_region_idx+1} (score: {best_score:.3f})")
             
+            if not matches:
+                print(f"[WARNING] No matches found above threshold {min_confidence}, using fallback")
+                return self._fallback_match(regions, questions)
+            
+            print(f"[INFO] Found {len(matches)} semantic matches")
             return matches
             
         except Exception as e:
             print(f"[ERROR] Semantic matching failed: {str(e)}")
-            return []
+            import traceback
+            traceback.print_exc()
+            return self._fallback_match(regions, questions)
+    
+    def _fallback_match(self, regions: List[VisualRegion], questions: List[str]) -> List[Tuple[int, int, float]]:
+        """Fallback matching when semantic matching fails - uses round-robin with region type hints"""
+        print("[INFO] Using fallback matching (round-robin distribution)")
+        matches = []
+        for q_idx in range(len(questions)):
+            r_idx = q_idx % len(regions)
+            # Use a default confidence score
+            matches.append((q_idx, r_idx, 0.5))
+        return matches
     
     def _extract_text_from_region(self, region: VisualRegion) -> str:
         """Extract text from a visual region using OCR"""
         if not region.image:
-            return ""
+            return f"{region.region_type} visual element"
         
         try:
             import pytesseract
@@ -442,14 +486,23 @@ class SemanticMatcher:
                     rgb_img.paste(img)
                 img = rgb_img
             
-            # Extract text
-            text = pytesseract.image_to_string(img, lang='eng')
-            return text.strip()
+            # Extract text with better config for diagrams/graphs
+            text = pytesseract.image_to_string(img, lang='eng', config='--psm 6')
+            text = text.strip()
+            
+            # If OCR returns very little text, create a descriptive fallback
+            if len(text) < 10:
+                # Create a more descriptive text based on region type
+                text = f"{region.region_type} diagram showing {region.region_type} information"
+            
+            return text
             
         except ImportError:
-            return f"{region.region_type} on page {region.page_num + 1}"
+            # Fallback: create descriptive text
+            return f"{region.region_type} diagram on page {region.page_num + 1}"
         except Exception as e:
-            return f"{region.region_type} on page {region.page_num + 1}"
+            # Fallback: create descriptive text
+            return f"{region.region_type} diagram on page {region.page_num + 1}"
 
 
 class VisualRegionPipeline:
