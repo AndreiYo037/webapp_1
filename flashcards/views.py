@@ -133,16 +133,20 @@ def upload_file(request):
                         image_matches = match_images_to_flashcards(flashcards_data, extracted_image_files, text)
                         if image_matches:
                             print(f"[INFO] Successfully matched images to flashcards")
+                            # Create a mapping dictionary for easier lookup
+                            match_dict = {q_idx: img_idx for q_idx, img_idx in image_matches}
                         else:
                             # Fallback: use first image for all
-                            image_matches = [(i, 0) for i in range(len(flashcards_data))]
+                            match_dict = {i: 0 for i in range(len(flashcards_data))}
+                    else:
+                        match_dict = {}
                     
                     # Create flashcards with matched images
                     for idx, card_data in enumerate(flashcards_data):
                         # Determine which image to use for this flashcard
                         matched_image = None
-                        if image_matches and idx < len(image_matches):
-                            q_idx, img_idx = image_matches[idx]
+                        if match_dict and idx in match_dict:
+                            img_idx = match_dict[idx]
                             if img_idx < len(extracted_image_files):
                                 matched_image = extracted_image_files[img_idx]
                         

@@ -121,7 +121,8 @@ def extract_first_image_from_docx(file_path):
 
 def match_images_to_flashcards(flashcards_data, image_files_list, text_content):
     """
-    Match images to flashcards based on question content using LLM
+    Match images to flashcards based on question content and image descriptions using LLM
+    First describes each image using vision API, then matches questions to relevant images
     Returns a list of (flashcard_index, image_file_index) tuples, or None if matching fails
     """
     if not image_files_list or len(image_files_list) == 0:
@@ -141,22 +142,47 @@ def match_images_to_flashcards(flashcards_data, image_files_list, text_content):
             return [(i, 0) for i in range(len(flashcards_data))]
         
         model = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
+        vision_model = getattr(settings, 'GROQ_VISION_MODEL', 'llava-v1.5-7b-4096-preview')
         client = OpenAI(
             api_key=api_key,
             base_url='https://api.groq.com/openai/v1'
         )
         
-        # Create a prompt to match questions to images
-        questions_text = "\n".join([f"{i+1}. {card['question']}" for i, card in enumerate(flashcards_data)])
+        # First, get descriptions of each image using vision API
+        print(f"[INFO] Analyzing {len(image_files_list)} images to understand their content...")
+        image_descriptions = []
+        for idx, image_file in enumerate(image_files_list):
+            try:
+                if hasattr(image_file, 'file') and image_file.file:
+                    image_path = image_file.file.path
+                    description = understand_image_with_vision(image_path)
+                    if description:
+                        # Truncate description for prompt
+                        desc_short = description[:300] + "..." if len(description) > 300 else description
+                        image_descriptions.append(f"Image {idx+1}: {desc_short}")
+                    else:
+                        image_descriptions.append(f"Image {idx+1}: [Unable to analyze image content]")
+                else:
+                    image_descriptions.append(f"Image {idx+1}: [Image file not available]")
+            except Exception as e:
+                print(f"[WARNING] Failed to analyze image {idx+1}: {str(e)}")
+                image_descriptions.append(f"Image {idx+1}: [Analysis failed]")
         
-        prompt = f"""You are matching flashcard questions to relevant images/diagrams.
+        # Create a prompt to match questions to images based on image descriptions
+        questions_text = "\n".join([f"{i+1}. {card['question']}" for i, card in enumerate(flashcards_data)])
+        images_text = "\n".join(image_descriptions)
+        
+        prompt = f"""You are matching flashcard questions to relevant images/diagrams based on image content.
 
-We have {len(flashcards_data)} flashcard questions and {len(image_files_list)} images extracted from a document.
+We have {len(flashcards_data)} flashcard questions and {len(image_files_list)} images. Each image has been analyzed and described below.
 
 Flashcard Questions:
 {questions_text}
 
-For each question, determine which image (1-{len(image_files_list)}) is most relevant. An image is relevant if it contains diagrams, charts, graphs, or visual content that directly relates to the question topic.
+Image Descriptions (what each image contains):
+{images_text}
+
+For each question, determine which image (1-{len(image_files_list)}) is most relevant based on the question topic and what the image actually contains. Match questions to images where the image content directly relates to the question topic.
 
 Return a JSON array where each element is an object with "question_index" (0-based) and "image_index" (0-based).
 
@@ -172,7 +198,7 @@ Return ONLY the JSON array, no additional text."""
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are an expert at matching educational content. You always return valid JSON arrays."},
+                {"role": "system", "content": "You are an expert at matching educational content. You analyze question topics and match them to relevant image content. You always return valid JSON arrays."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,
@@ -209,8 +235,9 @@ Return ONLY the JSON array, no additional text."""
                         # Invalid index, use first image as fallback
                         result.append((q_idx, 0))
             
-            # Ensure all questions have a match
+            # Ensure all questions have a match - sort by question_index to maintain order
             if len(result) == len(flashcards_data):
+                result.sort(key=lambda x: x[0])  # Sort by question index
                 return result
         
         # Fallback: assign first image to all
@@ -219,6 +246,8 @@ Return ONLY the JSON array, no additional text."""
         
     except Exception as e:
         print(f"[WARNING] Failed to match images to flashcards: {str(e)}")
+        import traceback
+        traceback.print_exc()
         # Fallback: assign first image to all
         return [(i, 0) for i in range(len(flashcards_data))]
 
