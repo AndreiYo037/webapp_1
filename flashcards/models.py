@@ -40,6 +40,8 @@ class Flashcard(models.Model):
     answer = models.TextField()
     # Optional: Reference to source image file if flashcard was generated from an image
     source_image = models.ForeignKey(UploadedFile, on_delete=models.SET_NULL, null=True, blank=True, related_name='flashcards')
+    # Optional: Cropped image for this specific flashcard (user-selected region)
+    cropped_image = models.ImageField(upload_to='flashcard_crops/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -49,8 +51,16 @@ class Flashcard(models.Model):
         return f"Q: {self.question[:50]}..."
     
     def has_image(self):
-        """Check if this flashcard has an associated image"""
-        return self.source_image is not None and self.source_image.file_type.startswith('image/')
+        """Check if this flashcard has an associated image (cropped or source)"""
+        return (self.cropped_image is not None) or (self.source_image is not None and self.source_image.file_type.startswith('image/'))
+    
+    def get_display_image(self):
+        """Get the image to display - prefer cropped_image, fallback to source_image"""
+        if self.cropped_image:
+            return self.cropped_image
+        elif self.source_image and self.source_image.file_type.startswith('image/'):
+            return self.source_image.file
+        return None
 
 
 class TestSession(models.Model):

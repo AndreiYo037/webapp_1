@@ -172,21 +172,41 @@ def match_images_to_flashcards(flashcards_data, image_files_list, text_content):
                 print(f"[WARNING] Failed to analyze image {idx+1}: {str(e)}")
                 image_descriptions.append(f"Image {idx+1}: [Analysis failed]")
         
-        # Create a prompt to match questions to images based on image descriptions
+        # Create an enhanced prompt to match questions to images with better semantic analysis
         questions_text = "\n".join([f"{i+1}. {card['question']}" for i, card in enumerate(flashcards_data)])
         images_text = "\n".join(image_descriptions)
         
-        prompt = f"""You are matching flashcard questions to relevant images/diagrams based on image content.
+        prompt = f"""You are an expert at matching educational content. Your task is to match flashcard questions to the most relevant images/diagrams.
 
-We have {len(flashcards_data)} flashcard questions and {len(image_files_list)} images. Each image has been analyzed and described below.
+CRITICAL MATCHING RULES:
+1. Match based on SPECIFIC TOPICS and CONCEPTS mentioned in both the question and image description
+2. Look for KEYWORDS, TERMINOLOGY, and SUBJECT MATTER that overlap
+3. Consider the EDUCATIONAL CONTEXT - what concept is the question testing?
+4. An image should DIRECTLY ILLUSTRATE or EXPLAIN the concept asked in the question
+5. If multiple images could match, choose the one that is MOST SPECIFIC to the question topic
+6. If no image directly matches, choose the CLOSEST related image based on subject matter
+
+We have {len(flashcards_data)} flashcard questions and {len(image_files_list)} images.
 
 Flashcard Questions:
 {questions_text}
 
-Image Descriptions (what each image contains):
+Image Descriptions (detailed analysis of what each image contains):
 {images_text}
 
-For each question, determine which image (1-{len(image_files_list)}) is most relevant based on the question topic and what the image actually contains. Match questions to images where the image content directly relates to the question topic.
+ANALYSIS INSTRUCTIONS:
+For EACH question, analyze:
+- What is the MAIN TOPIC or CONCEPT being asked about?
+- What KEYWORDS or TERMINOLOGY appear in the question?
+- What SUBJECT AREA does this question belong to?
+- Which image description contains the MOST RELEVANT content for answering this question?
+
+Then match each question to the image whose description contains the most relevant content.
+
+IMPORTANT: 
+- Each question MUST be matched to exactly ONE image (0-based index)
+- You can match multiple questions to the same image if they all relate to that image's content
+- Be SPECIFIC - match based on actual content overlap, not just general similarity
 
 Return a JSON array where each element is an object with "question_index" (0-based) and "image_index" (0-based).
 
@@ -197,7 +217,7 @@ Example format:
   {{"question_index": 2, "image_index": 2}}
 ]
 
-Return ONLY the JSON array, no additional text."""
+Return ONLY the JSON array, no additional text or explanation."""
 
         response = client.chat.completions.create(
             model=model,
@@ -322,14 +342,15 @@ Return ONLY the JSON array, no additional text."""
 def extract_text_from_image_ocr(file_path):
     """
     Extract text from image using OCR (Optical Character Recognition)
-    Uses pytesseract/Tesseract for text extraction
+    Uses pytesseract/Tesseract for text extraction with improved preprocessing
     """
     try:
-        from PIL import Image
+        from PIL import Image, ImageEnhance, ImageFilter
         import pytesseract
         
         # Open image
         image = Image.open(file_path)
+        original_size = image.size
         
         # Convert to RGB if necessary (some formats like PNG might have RGBA)
         if image.mode != 'RGB':
@@ -341,7 +362,54 @@ def extract_text_from_image_ocr(file_path):
                 rgb_image.paste(image)
             image = rgb_image
         
-        # Extract text using OCR
+        # Improve image quality for better OCR
+        # Resize if image is too small (OCR works better on larger images)
+        min_size = 300
+        if min(image.size) < min_size:
+            scale_factor = min_size / min(image.size)
+            new_size = (int(image.size[0] * scale_factor), int(image.size[1] * scale_factor))
+            image = image.resize(new_size, Image.Resampling.LANCZOS)
+        
+        # Enhance contrast for better text recognition
+        enhancer = ImageEnhance.Contrast(image)
+        image = enhancer.enhance(1.5)
+        
+        # Enhance sharpness
+        enhancer = ImageEnhance.Sharpness(image)
+        image = enhancer.enhance(1.2)
+        
+        # Try OCR with different configurations for better accuracy
+        ocr_configs = [
+            '--psm 6',  # Assume uniform block of text
+            '--psm 11',  # Sparse text
+            '--psm 12',  # Sparse text with OSD
+        ]
+        
+        all_text = []
+        for config in ocr_configs:
+            try:
+                text = pytesseract.image_to_string(image, lang='eng', config=config)
+                if text.strip():
+                    all_text.append(text.strip())
+            except:
+                continue
+        
+        # Combine results, removing duplicates
+        if all_text:
+            # Use the longest result (usually most complete)
+            combined_text = max(all_text, key=len)
+            # Remove duplicate lines
+            lines = combined_text.split('\n')
+            seen = set()
+            unique_lines = []
+            for line in lines:
+                line_stripped = line.strip()
+                if line_stripped and line_stripped not in seen:
+                    seen.add(line_stripped)
+                    unique_lines.append(line)
+            return '\n'.join(unique_lines).strip()
+        
+        # Fallback to default OCR if configs fail
         text = pytesseract.image_to_string(image, lang='eng')
         return text.strip()
     
@@ -399,15 +467,35 @@ def understand_image_with_vision(file_path):
         image_bytes = image_buffer.getvalue()
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
         
-        # Create prompt for diagram understanding
-        prompt = """Analyze this image in detail. If it contains a diagram, chart, flowchart, or any visual representation:
-1. Describe all text labels, annotations, and captions you can see
-2. Explain the structure, relationships, and connections shown
-3. Identify key concepts, processes, or data represented
-4. Describe any arrows, lines, shapes, or symbols and what they represent
-5. Summarize the main purpose and meaning of the diagram
+        # Create enhanced prompt for diagram understanding with focus on educational content matching
+        prompt = """Analyze this image in EXTREME detail for educational content matching. This description will be used to match images to flashcard questions.
 
-Provide a comprehensive description that would be useful for creating educational flashcards. Be specific about what is shown in the image, including all details that would help someone understand the content without seeing the image."""
+CRITICAL: Focus on identifying the SPECIFIC TOPICS, CONCEPTS, and SUBJECT MATTER shown in this image.
+
+If this image contains a diagram, chart, graph, flowchart, or any visual representation:
+
+1. **Text Content**: List ALL text labels, annotations, captions, titles, axis labels, legends, and any readable text. Include exact wording when possible.
+
+2. **Subject Matter**: Identify the SPECIFIC academic subject, topic, or field (e.g., "microeconomics", "biology", "chemistry", "mathematics", "physics", "history", etc.)
+
+3. **Key Concepts**: List the MAIN CONCEPTS, THEORIES, or PRINCIPLES illustrated (e.g., "supply and demand", "photosynthesis", "chemical equilibrium", "derivatives", etc.)
+
+4. **Visual Elements**: Describe:
+   - Chart/graph types (bar chart, line graph, scatter plot, pie chart, etc.)
+   - Axes labels and what they represent
+   - Data points, trends, or patterns shown
+   - Arrows, lines, shapes, symbols and their meanings
+   - Color coding or visual distinctions
+   - Spatial relationships and layout
+
+5. **Educational Context**: 
+   - What specific question or topic would this image help answer?
+   - What educational concepts does it demonstrate?
+   - What would a student need to understand to interpret this image?
+
+6. **Keywords for Matching**: Provide 5-10 KEYWORDS or PHRASES that would help match this image to relevant questions (e.g., "tax on buyer", "price floor", "demand curve shift", "consumer surplus", etc.)
+
+Be EXTREMELY SPECIFIC and DETAILED. This description will be used to automatically match images to flashcard questions, so include all relevant educational terminology and concepts."""
 
         # Generate description using Groq vision model
         try:
