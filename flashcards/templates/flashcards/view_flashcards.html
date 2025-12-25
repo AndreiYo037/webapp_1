@@ -20,20 +20,24 @@
                     <div>
                         <h3>Question {{ forloop.counter }}</h3>
                         <p style="font-size: 1.2em; margin-top: 20px;">{{ flashcard.question }}</p>
-                        {% if flashcard.source_image and flashcard.source_image.file %}
-                        <div style="margin-top: 20px; text-align: center;">
-                            <img src="{{ flashcard.source_image.file.url }}" 
-                                 alt="Diagram for question" 
-                                 style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
-                                 onerror="this.style.display='none'">
-                        </div>
-                        {% elif source_file_is_image and flashcard_set.file.file %}
-                        <div style="margin-top: 20px; text-align: center;">
-                            <img src="{{ flashcard_set.file.file.url }}" 
-                                 alt="Diagram for question" 
-                                 style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
-                                 onerror="this.style.display='none'">
-                        </div>
+                        {% if flashcard.source_image %}
+                            {% if flashcard.source_image.file %}
+                            <div style="margin-top: 20px; text-align: center;">
+                                <img src="{{ flashcard.source_image.file.url }}" 
+                                     alt="Diagram for question" 
+                                     style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
+                                     onerror="this.style.display='none'">
+                            </div>
+                            {% endif %}
+                        {% elif source_file_is_image %}
+                            {% if flashcard_set.file.file %}
+                            <div style="margin-top: 20px; text-align: center;">
+                                <img src="{{ flashcard_set.file.file.url }}" 
+                                     alt="Diagram for question" 
+                                     style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
+                                     onerror="this.style.display='none'">
+                            </div>
+                            {% endif %}
                         {% endif %}
                     </div>
                 </div>
@@ -41,20 +45,24 @@
                     <div>
                         <h3>Answer</h3>
                         <p style="font-size: 1.1em; margin-top: 20px;">{{ flashcard.answer }}</p>
-                        {% if flashcard.source_image and flashcard.source_image.file %}
-                        <div style="margin-top: 20px; text-align: center;">
-                            <img src="{{ flashcard.source_image.file.url }}" 
-                                 alt="Diagram reference" 
-                                 style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); opacity: 0.7;"
-                                 onerror="this.style.display='none'">
-                        </div>
-                        {% elif source_file_is_image and flashcard_set.file.file %}
-                        <div style="margin-top: 20px; text-align: center;">
-                            <img src="{{ flashcard_set.file.file.url }}" 
-                                 alt="Diagram reference" 
-                                 style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); opacity: 0.7;"
-                                 onerror="this.style.display='none'">
-                        </div>
+                        {% if flashcard.source_image %}
+                            {% if flashcard.source_image.file %}
+                            <div style="margin-top: 20px; text-align: center;">
+                                <img src="{{ flashcard.source_image.file.url }}" 
+                                     alt="Diagram reference" 
+                                     style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); opacity: 0.7;"
+                                     onerror="this.style.display='none'">
+                            </div>
+                            {% endif %}
+                        {% elif source_file_is_image %}
+                            {% if flashcard_set.file.file %}
+                            <div style="margin-top: 20px; text-align: center;">
+                                <img src="{{ flashcard_set.file.file.url }}" 
+                                     alt="Diagram reference" 
+                                     style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); opacity: 0.7;"
+                                     onerror="this.style.display='none'">
+                            </div>
+                            {% endif %}
                         {% endif %}
                     </div>
                 </div>

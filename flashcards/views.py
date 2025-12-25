@@ -191,7 +191,11 @@ def view_flashcards(request, set_id):
     flashcards = flashcard_set.flashcards.all()
     
     # Check if the source file is an image (for backwards compatibility with old flashcards)
-    source_file_is_image = flashcard_set.file.file_type.startswith('image/') if flashcard_set.file.file_type else False
+    # Handle case where file or file_type might be None
+    try:
+        source_file_is_image = flashcard_set.file.file_type.startswith('image/') if (flashcard_set.file and flashcard_set.file.file_type) else False
+    except (AttributeError, Exception):
+        source_file_is_image = False
     
     return render(request, 'flashcards/view_flashcards.html', {
         'flashcard_set': flashcard_set,
