@@ -18,9 +18,11 @@ class FlashcardSetAdmin(admin.ModelAdmin):
 
 @admin.register(Flashcard)
 class FlashcardAdmin(admin.ModelAdmin):
-    list_display = ['question', 'flashcard_set', 'created_at']
-    list_filter = ['flashcard_set', 'created_at']
+    list_display = ['question', 'flashcard_set', 'source_image', 'created_at']
+    list_filter = ['flashcard_set', 'created_at', 'source_image']
     search_fields = ['question', 'answer']
+    fields = ['flashcard_set', 'question', 'answer', 'source_image', 'created_at']
+    readonly_fields = ['created_at']
 
 
 

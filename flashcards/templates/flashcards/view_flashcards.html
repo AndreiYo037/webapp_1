@@ -19,12 +19,26 @@
                     <div>
                         <h3>Question {{ forloop.counter }}</h3>
                         <p style="font-size: 1.2em; margin-top: 20px;">{{ flashcard.question }}</p>
+                        {% if flashcard.source_image %}
+                        <div style="margin-top: 20px; text-align: center;">
+                            <img src="{{ flashcard.source_image.file.url }}" 
+                                 alt="Diagram for question" 
+                                 style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="flashcard-back">
                     <div>
                         <h3>Answer</h3>
                         <p style="font-size: 1.1em; margin-top: 20px;">{{ flashcard.answer }}</p>
+                        {% if flashcard.source_image %}
+                        <div style="margin-top: 20px; text-align: center;">
+                            <img src="{{ flashcard.source_image.file.url }}" 
+                                 alt="Diagram reference" 
+                                 style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); opacity: 0.7;">
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -51,6 +65,23 @@ function flipCard(id) {
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: 30px;
     margin-top: 20px;
+}
+
+.flashcard img {
+    max-height: 300px;
+    object-fit: contain;
+    margin: 10px 0;
+}
+
+.flashcard-front img,
+.flashcard-back img {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.flashcard-front img:hover,
+.flashcard-back img:hover {
+    transform: scale(1.05);
 }
 </style>
 {% endblock %}

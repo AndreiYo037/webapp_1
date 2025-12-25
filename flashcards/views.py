@@ -78,12 +78,16 @@ def upload_file(request):
                         title=f"Flashcards from {file_obj.filename}"
                     )
                     
+                    # Determine if source file is an image
+                    is_image_file = file_type.startswith('image/')
+                    
                     # Create flashcards
                     for card_data in flashcards_data:
                         Flashcard.objects.create(
                             flashcard_set=flashcard_set,
                             question=card_data['question'],
-                            answer=card_data['answer']
+                            answer=card_data['answer'],
+                            source_image=file_obj if is_image_file else None
                         )
                     
                     word_count = len(text.split())

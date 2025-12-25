@@ -38,6 +38,8 @@ class Flashcard(models.Model):
     flashcard_set = models.ForeignKey(FlashcardSet, on_delete=models.CASCADE, related_name='flashcards')
     question = models.TextField()
     answer = models.TextField()
+    # Optional: Reference to source image file if flashcard was generated from an image
+    source_image = models.ForeignKey(UploadedFile, on_delete=models.SET_NULL, null=True, blank=True, related_name='flashcards')
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -45,6 +47,10 @@ class Flashcard(models.Model):
     
     def __str__(self):
         return f"Q: {self.question[:50]}..."
+    
+    def has_image(self):
+        """Check if this flashcard has an associated image"""
+        return self.source_image is not None and self.source_image.file_type.startswith('image/')
 
 
 class TestSession(models.Model):
