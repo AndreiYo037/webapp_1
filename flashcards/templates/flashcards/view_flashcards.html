@@ -90,79 +90,111 @@ function flipCard(id) {
     margin-top: 20px;
 }
 
-.flashcard {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
+#flashcard-container .flashcard {
+    perspective: 1000px;
+    margin: 0;
+    height: auto;
+    min-height: 450px;
 }
 
-.flashcard-inner {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
+#flashcard-container .flashcard-inner {
+    position: relative;
+    width: 100%;
+    height: 450px;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
 }
 
-.flashcard-front,
-.flashcard-back {
-    flex: 1;
+#flashcard-container .flashcard.flipped .flashcard-inner {
+    transform: rotateY(180deg);
+}
+
+#flashcard-container .flashcard-front,
+#flashcard-container .flashcard-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 12px;
     display: flex;
     flex-direction: column;
-    min-height: 400px;
-    padding: 20px;
+    padding: 25px;
     box-sizing: border-box;
     overflow-y: auto;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
 }
 
-.flashcard-front > div,
-.flashcard-back > div {
+#flashcard-container .flashcard-front {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+#flashcard-container .flashcard-back {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    transform: rotateY(180deg);
+}
+
+#flashcard-container .flashcard-front > div,
+#flashcard-container .flashcard-back > div {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-.flashcard-front h3,
-.flashcard-back h3 {
+#flashcard-container .flashcard-front h3,
+#flashcard-container .flashcard-back h3 {
     margin: 0 0 15px 0;
     font-size: 1.1em;
     flex-shrink: 0;
+    color: white;
 }
 
-.flashcard-front p,
-.flashcard-back p {
+#flashcard-container .flashcard-front p,
+#flashcard-container .flashcard-back p {
     margin: 0 0 15px 0;
     word-wrap: break-word;
     overflow-wrap: break-word;
     flex-shrink: 0;
     line-height: 1.5;
+    color: white;
 }
 
-.flashcard img {
+#flashcard-container .flashcard img {
     max-width: 100%;
-    max-height: 250px;
+    max-height: 220px;
     width: auto;
     height: auto;
     object-fit: contain;
     margin: 10px 0;
     flex-shrink: 1;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
-.flashcard-front img,
-.flashcard-back img {
+#flashcard-container .flashcard-front img,
+#flashcard-container .flashcard-back img {
     cursor: pointer;
     transition: transform 0.2s;
 }
 
-.flashcard-front img:hover,
-.flashcard-back img:hover {
+#flashcard-container .flashcard-front img:hover,
+#flashcard-container .flashcard-back img:hover {
     transform: scale(1.02);
 }
 
-.flashcard button {
-    flex-shrink: 0;
+#flashcard-container .flashcard button {
+    position: relative;
+    z-index: 10;
     margin-top: 15px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid white;
+    color: white;
+}
+
+#flashcard-container .flashcard button:hover {
+    background: rgba(255, 255, 255, 0.3);
 }
 </style>
 {% endblock %}
