@@ -85,6 +85,10 @@ def upload_file(request):
                     # Use visual region pipeline for intelligent cropping (PDF/Word only)
                     is_image_file = file_type.startswith('image/')
                     
+                    # Try visual region pipeline first, but always fall back to standard extraction if it fails
+                    use_visual_regions = False
+                    region_matches = []
+                    
                     if not is_image_file and (file_type == 'application/pdf' or file_path.endswith('.pdf') or
                                              file_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
                                                           'application/msword'] or file_path.endswith(('.docx', '.doc'))):
@@ -96,58 +100,67 @@ def upload_file(request):
                             pipeline = VisualRegionPipeline()
                             region_matches = pipeline.process_document(file_path, file_type, questions)
                             
-                            print(f"[INFO] Visual region pipeline matched {len(region_matches)} regions to questions")
-                            
-                            # Create flashcards with matched visual regions
-                            for idx, card_data in enumerate(flashcards_data):
-                                flashcard = Flashcard.objects.create(
-                                    flashcard_set=flashcard_set,
-                                    question=card_data['question'],
-                                    answer=card_data['answer'],
-                                    source_image=None  # Visual regions are stored in cropped_image
-                                )
-                                
-                                # Find matching region for this question
-                                matched_region = None
-                                confidence = 0.0
-                                for q_idx, region, conf in region_matches:
-                                    if q_idx == idx:
-                                        matched_region = region
-                                        confidence = conf
-                                        break
-                                
-                                # Save cropped region if found and confidence is high enough
-                                if matched_region and matched_region.image and confidence >= 0.3:
-                                    try:
-                                        # Save cropped region image
-                                        img_buffer = io.BytesIO()
-                                        matched_region.image.save(img_buffer, format='PNG')
-                                        img_buffer.seek(0)
-                                        
-                                        filename = f"flashcard_{flashcard.id}_region_{matched_region.region_type}.png"
-                                        flashcard.cropped_image.save(
-                                            filename,
-                                            ContentFile(img_buffer.getvalue()),
-                                            save=True
-                                        )
-                                        print(f"[SUCCESS] Saved {matched_region.region_type} region for flashcard {idx+1} (confidence: {confidence:.2f})")
-                                    except Exception as e:
-                                        print(f"[WARNING] Failed to save region for flashcard {idx+1}: {str(e)}")
-                                else:
-                                    if matched_region:
-                                        print(f"[INFO] Skipped region for flashcard {idx+1} (low confidence: {confidence:.2f})")
-                            
-                            # Skip the old image matching logic
-                            word_count = len(text.split())
-                            messages.success(request, f'File processed successfully! Created {len(flashcards_data)} flashcards from {word_count:,} words of content.')
-                            return redirect('view_flashcards', set_id=flashcard_set.id)
+                            if region_matches and len(region_matches) > 0:
+                                print(f"[INFO] Visual region pipeline matched {len(region_matches)} regions to questions")
+                                use_visual_regions = True
+                            else:
+                                print(f"[INFO] Visual region pipeline found no matches, using standard image extraction")
+                                use_visual_regions = False
                             
                         except Exception as e:
                             print(f"[WARNING] Visual region pipeline failed: {str(e)}, falling back to standard image matching")
                             import traceback
                             traceback.print_exc()
+                            use_visual_regions = False
                     
-                    # Fallback to standard image matching for image files or if pipeline fails
+                    # If visual regions worked, use them; otherwise use standard image extraction
+                    if use_visual_regions:
+                        # Create flashcards with matched visual regions
+                        for idx, card_data in enumerate(flashcards_data):
+                            flashcard = Flashcard.objects.create(
+                                flashcard_set=flashcard_set,
+                                question=card_data['question'],
+                                answer=card_data['answer'],
+                                source_image=None  # Visual regions are stored in cropped_image
+                            )
+                            
+                            # Find matching region for this question
+                            matched_region = None
+                            confidence = 0.0
+                            for q_idx, region, conf in region_matches:
+                                if q_idx == idx:
+                                    matched_region = region
+                                    confidence = conf
+                                    break
+                            
+                            # Save cropped region if found and confidence is high enough
+                            if matched_region and matched_region.image and confidence >= 0.3:
+                                try:
+                                    # Save cropped region image
+                                    img_buffer = io.BytesIO()
+                                    matched_region.image.save(img_buffer, format='PNG')
+                                    img_buffer.seek(0)
+                                    
+                                    filename = f"flashcard_{flashcard.id}_region_{matched_region.region_type}.png"
+                                    flashcard.cropped_image.save(
+                                        filename,
+                                        ContentFile(img_buffer.getvalue()),
+                                        save=True
+                                    )
+                                    print(f"[SUCCESS] Saved {matched_region.region_type} region for flashcard {idx+1} (confidence: {confidence:.2f})")
+                                except Exception as e:
+                                    print(f"[WARNING] Failed to save region for flashcard {idx+1}: {str(e)}")
+                            else:
+                                if matched_region:
+                                    print(f"[INFO] Skipped region for flashcard {idx+1} (low confidence: {confidence:.2f})")
+                        
+                        # Skip the old image matching logic
+                        word_count = len(text.split())
+                        messages.success(request, f'File processed successfully! Created {len(flashcards_data)} flashcards from {word_count:,} words of content.')
+                        return redirect('view_flashcards', set_id=flashcard_set.id)
+                    
+                    # Fallback to standard image matching for image files or if visual region pipeline fails/finds no matches
+                    print(f"[INFO] Using standard image extraction (visual_regions={use_visual_regions})")
                     # Determine if source file is an image or contains extractable images
                     is_image_file = file_type.startswith('image/')
                     extracted_image_files = []
