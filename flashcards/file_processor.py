@@ -5,6 +5,7 @@ import os
 import json
 import requests
 import sys
+import io
 from pathlib import Path
 from django.conf import settings
 
@@ -30,6 +31,68 @@ def safe_str(obj):
             return str(obj).encode('utf-8', errors='replace').decode('utf-8', errors='replace')
         except:
             return "Unable to encode text (encoding issue)"
+
+
+def extract_first_image_from_pdf(file_path):
+    """
+    Extract the first page of a PDF as an image
+    Returns PIL Image object or None
+    """
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(file_path)
+        if len(doc) > 0:
+            # Get first page
+            page = doc[0]
+            # Render page to image (150 DPI for good quality)
+            pix = page.get_pixmap(matrix=fitz.Matrix(150/72, 150/72))
+            # Convert to PIL Image
+            from PIL import Image
+            img_data = pix.tobytes("png")
+            img = Image.open(io.BytesIO(img_data))
+            doc.close()
+            return img
+    except ImportError:
+        # Try pdf2image as fallback
+        try:
+            from pdf2image import convert_from_path
+            images = convert_from_path(file_path, first_page=1, last_page=1, dpi=150)
+            if images:
+                return images[0]
+        except ImportError:
+            pass
+    except Exception as e:
+        print(f"[WARNING] Failed to extract image from PDF: {str(e)}")
+    return None
+
+
+def extract_first_image_from_docx(file_path):
+    """
+    Extract the first image from a Word document
+    Returns PIL Image object or None
+    """
+    try:
+        from docx import Document
+        from PIL import Image
+        import zipfile
+        
+        # Open docx as zip
+        docx_zip = zipfile.ZipFile(file_path)
+        
+        # Look for images in the media folder
+        image_files = [f for f in docx_zip.namelist() if f.startswith('word/media/') and 
+                      any(f.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.bmp'])]
+        
+        if image_files:
+            # Get first image
+            image_data = docx_zip.read(image_files[0])
+            img = Image.open(io.BytesIO(image_data))
+            docx_zip.close()
+            return img
+        docx_zip.close()
+    except Exception as e:
+        print(f"[WARNING] Failed to extract image from Word document: {str(e)}")
+    return None
 
 
 def extract_text_from_image_ocr(file_path):
@@ -181,11 +244,75 @@ Provide a comprehensive description that would be useful for creating educationa
         return None
 
 
+def extract_first_image_from_pdf(file_path):
+    """
+    Extract the first page of a PDF as an image
+    Returns PIL Image object or None
+    """
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(file_path)
+        if len(doc) > 0:
+            # Get first page
+            page = doc[0]
+            # Render page to image (150 DPI for good quality)
+            pix = page.get_pixmap(matrix=fitz.Matrix(150/72, 150/72))
+            # Convert to PIL Image
+            from PIL import Image
+            img_data = pix.tobytes("png")
+            img = Image.open(io.BytesIO(img_data))
+            doc.close()
+            return img
+    except ImportError:
+        # Try pdf2image as fallback
+        try:
+            from pdf2image import convert_from_path
+            images = convert_from_path(file_path, first_page=1, last_page=1, dpi=150)
+            if images:
+                return images[0]
+        except ImportError:
+            pass
+    except Exception as e:
+        print(f"[WARNING] Failed to extract image from PDF: {str(e)}")
+    return None
+
+
+def extract_first_image_from_docx(file_path):
+    """
+    Extract the first image from a Word document
+    Returns PIL Image object or None
+    """
+    try:
+        from docx import Document
+        from PIL import Image
+        import io
+        import zipfile
+        
+        # Open docx as zip
+        docx_zip = zipfile.ZipFile(file_path)
+        
+        # Look for images in the media folder
+        image_files = [f for f in docx_zip.namelist() if f.startswith('word/media/') and 
+                      any(f.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.bmp'])]
+        
+        if image_files:
+            # Get first image
+            image_data = docx_zip.read(image_files[0])
+            img = Image.open(io.BytesIO(image_data))
+            docx_zip.close()
+            return img
+        docx_zip.close()
+    except Exception as e:
+        print(f"[WARNING] Failed to extract image from Word document: {str(e)}")
+    return None
+
+
 def extract_text_from_file(file_path, file_type):
     """
     Extract text content from various file types including images
     Returns the extracted text as a string
     """
+    import io
     text = ""
     
     try:

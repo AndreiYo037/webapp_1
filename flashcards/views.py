@@ -3,9 +3,12 @@ from django.contrib import messages
 from django.core.files.base import ContentFile
 from django.conf import settings
 import mimetypes
+import io
+import os
+from PIL import Image
 
 from .models import UploadedFile, FlashcardSet, Flashcard
-from .file_processor import extract_text_from_file, summarize_text, generate_flashcards_from_text, calculate_flashcard_count
+from .file_processor import extract_text_from_file, summarize_text, generate_flashcards_from_text, calculate_flashcard_count, extract_first_image_from_pdf, extract_first_image_from_docx
 
 
 def index(request):
@@ -78,8 +81,66 @@ def upload_file(request):
                         title=f"Flashcards from {file_obj.filename}"
                     )
                     
-                    # Determine if source file is an image
+                    # Determine if source file is an image or contains extractable images
                     is_image_file = file_type.startswith('image/')
+                    extracted_image_file = None
+                    
+                    # Try to extract images from PDF/Word documents
+                    if not is_image_file:
+                        try:
+                            if file_type == 'application/pdf' or file_path.endswith('.pdf'):
+                                img = extract_first_image_from_pdf(file_path)
+                                if img:
+                                    # Save extracted image as a new UploadedFile
+                                    img_buffer = io.BytesIO()
+                                    img.save(img_buffer, format='PNG')
+                                    img_buffer.seek(0)
+                                    
+                                    extracted_image_file = UploadedFile(
+                                        user=file_obj.user,
+                                        filename=f"{file_obj.filename}_preview.png",
+                                        file_type='image/png'
+                                    )
+                                    extracted_image_file.file.save(
+                                        f"{file_obj.filename}_preview.png",
+                                        ContentFile(img_buffer.getvalue()),
+                                        save=True
+                                    )
+                                    extracted_image_file.processed = True
+                                    extracted_image_file.save()
+                                    print(f"[INFO] Extracted preview image from PDF: {extracted_image_file.filename}")
+                            
+                            elif file_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+                                              'application/msword'] or file_path.endswith(('.docx', '.doc')):
+                                img = extract_first_image_from_docx(file_path)
+                                if img:
+                                    # Save extracted image as a new UploadedFile
+                                    img_buffer = io.BytesIO()
+                                    # Determine format from original image or use PNG
+                                    img_format = 'PNG'
+                                    img_buffer.seek(0)
+                                    img.save(img_buffer, format=img_format)
+                                    img_buffer.seek(0)
+                                    
+                                    extracted_image_file = UploadedFile(
+                                        user=file_obj.user,
+                                        filename=f"{file_obj.filename}_preview.png",
+                                        file_type='image/png'
+                                    )
+                                    extracted_image_file.file.save(
+                                        f"{file_obj.filename}_preview.png",
+                                        ContentFile(img_buffer.getvalue()),
+                                        save=True
+                                    )
+                                    extracted_image_file.processed = True
+                                    extracted_image_file.save()
+                                    print(f"[INFO] Extracted preview image from Word document: {extracted_image_file.filename}")
+                        except Exception as e:
+                            print(f"[WARNING] Failed to extract image from document: {str(e)}")
+                            extracted_image_file = None
+                    
+                    # Determine which image to use for flashcards
+                    image_for_flashcards = file_obj if is_image_file else extracted_image_file
                     
                     # Create flashcards
                     for card_data in flashcards_data:
@@ -87,7 +148,7 @@ def upload_file(request):
                             flashcard_set=flashcard_set,
                             question=card_data['question'],
                             answer=card_data['answer'],
-                            source_image=file_obj if is_image_file else None
+                            source_image=image_for_flashcards
                         )
                     
                     word_count = len(text.split())
@@ -128,9 +189,14 @@ def view_flashcards(request, set_id):
     """View flashcards in a set"""
     flashcard_set = get_object_or_404(FlashcardSet, id=set_id)
     flashcards = flashcard_set.flashcards.all()
+    
+    # Check if the source file is an image (for backwards compatibility with old flashcards)
+    source_file_is_image = flashcard_set.file.file_type.startswith('image/') if flashcard_set.file.file_type else False
+    
     return render(request, 'flashcards/view_flashcards.html', {
         'flashcard_set': flashcard_set,
-        'flashcards': flashcards
+        'flashcards': flashcards,
+        'source_file_is_image': source_file_is_image,
     })
 
 
