@@ -14,23 +14,22 @@
     <div id="flashcard-container">
         {% for flashcard in flashcards %}
         {% comment %}Determine which image to show - prefer flashcard.source_image, fallback to flashcard_set.file if it's an image{% endcomment %}
-        {% if flashcard.source_image and flashcard.source_image.file %}
-            {% with image_file=flashcard.source_image %}
-        {% elif source_file_is_image and flashcard_set.file.file %}
-            {% with image_file=flashcard_set.file %}
-        {% else %}
-            {% with image_file=None %}
-        {% endif %}
-        
         <div class="flashcard" id="flashcard-{{ flashcard.id }}">
             <div class="flashcard-inner">
                 <div class="flashcard-front">
                     <div>
                         <h3>Question {{ forloop.counter }}</h3>
                         <p style="font-size: 1.2em; margin-top: 20px;">{{ flashcard.question }}</p>
-                        {% if image_file %}
+                        {% if flashcard.source_image and flashcard.source_image.file %}
                         <div style="margin-top: 20px; text-align: center;">
-                            <img src="{{ image_file.file.url }}" 
+                            <img src="{{ flashcard.source_image.file.url }}" 
+                                 alt="Diagram for question" 
+                                 style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
+                                 onerror="this.style.display='none'">
+                        </div>
+                        {% elif source_file_is_image and flashcard_set.file.file %}
+                        <div style="margin-top: 20px; text-align: center;">
+                            <img src="{{ flashcard_set.file.file.url }}" 
                                  alt="Diagram for question" 
                                  style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"
                                  onerror="this.style.display='none'">
@@ -42,9 +41,16 @@
                     <div>
                         <h3>Answer</h3>
                         <p style="font-size: 1.1em; margin-top: 20px;">{{ flashcard.answer }}</p>
-                        {% if image_file %}
+                        {% if flashcard.source_image and flashcard.source_image.file %}
                         <div style="margin-top: 20px; text-align: center;">
-                            <img src="{{ image_file.file.url }}" 
+                            <img src="{{ flashcard.source_image.file.url }}" 
+                                 alt="Diagram reference" 
+                                 style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); opacity: 0.7;"
+                                 onerror="this.style.display='none'">
+                        </div>
+                        {% elif source_file_is_image and flashcard_set.file.file %}
+                        <div style="margin-top: 20px; text-align: center;">
+                            <img src="{{ flashcard_set.file.file.url }}" 
                                  alt="Diagram reference" 
                                  style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); opacity: 0.7;"
                                  onerror="this.style.display='none'">
@@ -57,7 +63,6 @@
                 Flip Card
             </button>
         </div>
-        {% endwith %}
         {% empty %}
         <p>No flashcards available.</p>
         {% endfor %}
@@ -97,4 +102,3 @@ function flipCard(id) {
 }
 </style>
 {% endblock %}
-
