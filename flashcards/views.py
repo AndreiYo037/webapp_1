@@ -8,7 +8,8 @@ import os
 from PIL import Image
 
 from .models import UploadedFile, FlashcardSet, Flashcard
-from .file_processor import extract_text_from_file, summarize_text, generate_flashcards_from_text, calculate_flashcard_count, extract_first_image_from_pdf, extract_first_image_from_docx
+from .file_processor import extract_text_from_file, summarize_text, generate_flashcards_from_text, calculate_flashcard_count, extract_first_image_from_pdf, extract_first_image_from_docx, extract_all_images_from_pdf, extract_all_images_from_docx, match_images_to_flashcards
+import tempfile, extract_all_images_from_pdf, extract_all_images_from_docx, understand_image_with_vision
 
 
 def index(request):

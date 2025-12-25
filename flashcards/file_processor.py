@@ -33,46 +33,55 @@ def safe_str(obj):
             return "Unable to encode text (encoding issue)"
 
 
-def extract_first_image_from_pdf(file_path):
+def extract_all_images_from_pdf(file_path):
     """
-    Extract the first page of a PDF as an image
-    Returns PIL Image object or None
+    Extract all pages from a PDF as images
+    Returns list of PIL Image objects
     """
+    images = []
     try:
         import fitz  # PyMuPDF
         doc = fitz.open(file_path)
-        if len(doc) > 0:
-            # Get first page
-            page = doc[0]
+        for page_num in range(len(doc)):
+            page = doc[page_num]
             # Render page to image (150 DPI for good quality)
             pix = page.get_pixmap(matrix=fitz.Matrix(150/72, 150/72))
             # Convert to PIL Image
             from PIL import Image
             img_data = pix.tobytes("png")
             img = Image.open(io.BytesIO(img_data))
-            doc.close()
-            return img
+            images.append(img)
+        doc.close()
+        return images
     except ImportError:
         # Try pdf2image as fallback
         try:
             from pdf2image import convert_from_path
-            images = convert_from_path(file_path, first_page=1, last_page=1, dpi=150)
-            if images:
-                return images[0]
+            images = convert_from_path(file_path, dpi=150)
+            return images if images else []
         except ImportError:
             pass
     except Exception as e:
-        print(f"[WARNING] Failed to extract image from PDF: {str(e)}")
-    return None
+        print(f"[WARNING] Failed to extract images from PDF: {str(e)}")
+    return images
 
 
-def extract_first_image_from_docx(file_path):
+def extract_first_image_from_pdf(file_path):
     """
-    Extract the first image from a Word document
+    Extract the first page of a PDF as an image (backwards compatibility)
     Returns PIL Image object or None
     """
+    images = extract_all_images_from_pdf(file_path)
+    return images[0] if images else None
+
+
+def extract_all_images_from_docx(file_path):
+    """
+    Extract all images from a Word document
+    Returns list of PIL Image objects
+    """
+    images = []
     try:
-        from docx import Document
         from PIL import Image
         import zipfile
         
@@ -83,16 +92,135 @@ def extract_first_image_from_docx(file_path):
         image_files = [f for f in docx_zip.namelist() if f.startswith('word/media/') and 
                       any(f.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.bmp'])]
         
-        if image_files:
-            # Get first image
-            image_data = docx_zip.read(image_files[0])
-            img = Image.open(io.BytesIO(image_data))
-            docx_zip.close()
-            return img
+        # Sort to ensure consistent order
+        image_files.sort()
+        
+        for image_file in image_files:
+            try:
+                image_data = docx_zip.read(image_file)
+                img = Image.open(io.BytesIO(image_data))
+                images.append(img)
+            except Exception as e:
+                print(f"[WARNING] Failed to extract image {image_file}: {str(e)}")
+                continue
+        
         docx_zip.close()
     except Exception as e:
-        print(f"[WARNING] Failed to extract image from Word document: {str(e)}")
-    return None
+        print(f"[WARNING] Failed to extract images from Word document: {str(e)}")
+    return images
+
+
+def extract_first_image_from_docx(file_path):
+    """
+    Extract the first image from a Word document (backwards compatibility)
+    Returns PIL Image object or None
+    """
+    images = extract_all_images_from_docx(file_path)
+    return images[0] if images else None
+
+
+def match_images_to_flashcards(flashcards_data, image_files_list, text_content):
+    """
+    Match images to flashcards based on question content using LLM
+    Returns a list of (flashcard_index, image_file_index) tuples, or None if matching fails
+    """
+    if not image_files_list or len(image_files_list) == 0:
+        return None
+    
+    if len(image_files_list) == 1:
+        # Only one image, assign it to all flashcards
+        return [(i, 0) for i in range(len(flashcards_data))]
+    
+    try:
+        from openai import OpenAI
+        
+        # Check if Groq API key is configured
+        api_key = getattr(settings, 'GROQ_API_KEY', '')
+        if not api_key or not isinstance(api_key, str) or api_key.strip() == '':
+            print("[INFO] No Groq API key - assigning first image to all flashcards")
+            return [(i, 0) for i in range(len(flashcards_data))]
+        
+        model = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
+        client = OpenAI(
+            api_key=api_key,
+            base_url='https://api.groq.com/openai/v1'
+        )
+        
+        # Create a prompt to match questions to images
+        questions_text = "\n".join([f"{i+1}. {card['question']}" for i, card in enumerate(flashcards_data)])
+        
+        prompt = f"""You are matching flashcard questions to relevant images/diagrams.
+
+We have {len(flashcards_data)} flashcard questions and {len(image_files_list)} images extracted from a document.
+
+Flashcard Questions:
+{questions_text}
+
+For each question, determine which image (1-{len(image_files_list)}) is most relevant. An image is relevant if it contains diagrams, charts, graphs, or visual content that directly relates to the question topic.
+
+Return a JSON array where each element is an object with "question_index" (0-based) and "image_index" (0-based).
+
+Example format:
+[
+  {{"question_index": 0, "image_index": 2}},
+  {{"question_index": 1, "image_index": 0}},
+  {{"question_index": 2, "image_index": 2}}
+]
+
+Return ONLY the JSON array, no additional text."""
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are an expert at matching educational content. You always return valid JSON arrays."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=2000
+        )
+        
+        content = response.choices[0].message.content.strip()
+        
+        # Remove markdown code blocks if present
+        if content.startswith('```'):
+            lines = content.split('\n')
+            content = '\n'.join(lines[1:-1]) if lines[-1].startswith('```') else '\n'.join(lines[1:])
+        
+        # Extract JSON array
+        start_idx = content.find('[')
+        end_idx = content.rfind(']') + 1
+        
+        if start_idx != -1 and end_idx > start_idx:
+            content = content[start_idx:end_idx]
+        
+        matches = json.loads(content)
+        
+        # Validate and create mapping
+        if isinstance(matches, list):
+            result = []
+            for match in matches:
+                if isinstance(match, dict) and 'question_index' in match and 'image_index' in match:
+                    q_idx = int(match['question_index'])
+                    img_idx = int(match['image_index'])
+                    # Validate indices
+                    if 0 <= q_idx < len(flashcards_data) and 0 <= img_idx < len(image_files_list):
+                        result.append((q_idx, img_idx))
+                    else:
+                        # Invalid index, use first image as fallback
+                        result.append((q_idx, 0))
+            
+            # Ensure all questions have a match
+            if len(result) == len(flashcards_data):
+                return result
+        
+        # Fallback: assign first image to all
+        print("[WARNING] Image matching failed, assigning first image to all flashcards")
+        return [(i, 0) for i in range(len(flashcards_data))]
+        
+    except Exception as e:
+        print(f"[WARNING] Failed to match images to flashcards: {str(e)}")
+        # Fallback: assign first image to all
+        return [(i, 0) for i in range(len(flashcards_data))]
 
 
 def extract_text_from_image_ocr(file_path):
