@@ -135,9 +135,12 @@ def upload_file(request):
                             print(f"[INFO] Successfully matched images to flashcards")
                             # Create a mapping dictionary for easier lookup
                             match_dict = {q_idx: img_idx for q_idx, img_idx in image_matches}
+                            print(f"[INFO] Match dictionary: {match_dict}")
                         else:
-                            # Fallback: use first image for all
-                            match_dict = {i: 0 for i in range(len(flashcards_data))}
+                            # Fallback: distribute images in round-robin fashion instead of using first image for all
+                            print(f"[INFO] Image matching failed or returned None - distributing images in round-robin fashion")
+                            match_dict = {i: i % len(extracted_image_files) for i in range(len(flashcards_data))}
+                            print(f"[INFO] Round-robin distribution: {match_dict}")
                     else:
                         match_dict = {}
                     
@@ -149,10 +152,14 @@ def upload_file(request):
                             img_idx = match_dict[idx]
                             if img_idx < len(extracted_image_files):
                                 matched_image = extracted_image_files[img_idx]
+                                print(f"[INFO] Flashcard {idx+1} assigned to image {img_idx+1} ({extracted_image_files[img_idx].filename})")
                         
-                        # Fallback to first image if no match
+                        # Fallback: distribute in round-robin if no match
                         if not matched_image and extracted_image_files:
-                            matched_image = extracted_image_files[0]
+                            # Use round-robin distribution instead of always using first image
+                            img_idx = idx % len(extracted_image_files)
+                            matched_image = extracted_image_files[img_idx]
+                            print(f"[INFO] Flashcard {idx+1} fallback: using image {img_idx+1} ({matched_image.filename})")
                         
                         Flashcard.objects.create(
                             flashcard_set=flashcard_set,

@@ -125,11 +125,15 @@ def match_images_to_flashcards(flashcards_data, image_files_list, text_content):
     First describes each image using vision API, then matches questions to relevant images
     Returns a list of (flashcard_index, image_file_index) tuples, or None if matching fails
     """
+    print(f"[DEBUG] match_images_to_flashcards called with {len(flashcards_data)} flashcards and {len(image_files_list) if image_files_list else 0} images")
+    
     if not image_files_list or len(image_files_list) == 0:
+        print("[WARNING] No images provided for matching")
         return None
     
     if len(image_files_list) == 1:
         # Only one image, assign it to all flashcards
+        print("[INFO] Only one image available - assigning to all flashcards")
         return [(i, 0) for i in range(len(flashcards_data))]
     
     try:
@@ -138,8 +142,8 @@ def match_images_to_flashcards(flashcards_data, image_files_list, text_content):
         # Check if Groq API key is configured
         api_key = getattr(settings, 'GROQ_API_KEY', '')
         if not api_key or not isinstance(api_key, str) or api_key.strip() == '':
-            print("[INFO] No Groq API key - assigning first image to all flashcards")
-            return [(i, 0) for i in range(len(flashcards_data))]
+            print("[INFO] No Groq API key - distributing images in round-robin fashion")
+            return [(i, i % len(image_files_list)) for i in range(len(flashcards_data))]
         
         model = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
         vision_model = getattr(settings, 'GROQ_VISION_MODEL', 'llava-v1.5-7b-4096-preview')
@@ -216,40 +220,103 @@ Return ONLY the JSON array, no additional text."""
         start_idx = content.find('[')
         end_idx = content.rfind(']') + 1
         
-        if start_idx != -1 and end_idx > start_idx:
-            content = content[start_idx:end_idx]
+        if start_idx == -1 or end_idx <= start_idx:
+            print("[WARNING] Could not find JSON array in response. Response content:")
+            print(content[:500])  # Print first 500 chars for debugging
+            raise ValueError("No JSON array found in API response")
         
-        matches = json.loads(content)
+        content = content[start_idx:end_idx]
+        
+        try:
+            matches = json.loads(content)
+        except json.JSONDecodeError as json_err:
+            print(f"[WARNING] Failed to parse JSON from API response: {str(json_err)}")
+            print(f"[DEBUG] Content that failed to parse: {content[:500]}")
+            raise json_err
         
         # Validate and create mapping
-        if isinstance(matches, list):
-            result = []
-            for match in matches:
-                if isinstance(match, dict) and 'question_index' in match and 'image_index' in match:
+        if not isinstance(matches, list):
+            print(f"[WARNING] API response is not a list. Got type: {type(matches)}")
+            raise ValueError(f"Expected list, got {type(matches)}")
+        
+        result = []
+        matched_question_indices = set()
+        
+        for match in matches:
+            if isinstance(match, dict) and 'question_index' in match and 'image_index' in match:
+                try:
                     q_idx = int(match['question_index'])
                     img_idx = int(match['image_index'])
                     # Validate indices
                     if 0 <= q_idx < len(flashcards_data) and 0 <= img_idx < len(image_files_list):
                         result.append((q_idx, img_idx))
+                        matched_question_indices.add(q_idx)
                     else:
-                        # Invalid index, use first image as fallback
-                        result.append((q_idx, 0))
-            
-            # Ensure all questions have a match - sort by question_index to maintain order
-            if len(result) == len(flashcards_data):
-                result.sort(key=lambda x: x[0])  # Sort by question index
-                return result
+                        # Invalid index, use round-robin distribution as fallback
+                        print(f"[WARNING] Invalid indices: q_idx={q_idx} (max={len(flashcards_data)-1}), img_idx={img_idx} (max={len(image_files_list)-1})")
+                        result.append((q_idx, q_idx % len(image_files_list)))
+                        matched_question_indices.add(q_idx)
+                except (ValueError, TypeError) as e:
+                    print(f"[WARNING] Failed to parse match indices: {match}, error: {str(e)}")
+                    continue
         
-        # Fallback: assign first image to all
-        print("[WARNING] Image matching failed, assigning first image to all flashcards")
-        return [(i, 0) for i in range(len(flashcards_data))]
+        # Fill in missing question indices with round-robin distribution
+        if len(result) < len(flashcards_data):
+            missing_indices = [i for i in range(len(flashcards_data)) if i not in matched_question_indices]
+            print(f"[INFO] LLM only matched {len(result)}/{len(flashcards_data)} flashcards. Filling {len(missing_indices)} missing matches with round-robin distribution.")
+            for q_idx in missing_indices:
+                img_idx = q_idx % len(image_files_list)
+                result.append((q_idx, img_idx))
         
+        # Sort by question index to maintain order
+        result.sort(key=lambda x: x[0])
+        
+        # Final validation
+        if len(result) == len(flashcards_data):
+            print(f"[SUCCESS] Successfully matched all {len(flashcards_data)} flashcards to images")
+            return result
+        else:
+            print(f"[WARNING] Result count mismatch: got {len(result)}, expected {len(flashcards_data)}")
+            # This shouldn't happen, but fallback to round-robin
+            return [(i, i % len(image_files_list)) for i in range(len(flashcards_data))]
+        
+    except ImportError as e:
+        print(f"[ERROR] Required library not installed: {str(e)}")
+        print("[INFO] Install with: pip install openai")
+        # Fallback: distribute images in round-robin fashion
+        return [(i, i % len(image_files_list)) for i in range(len(flashcards_data))]
+    except json.JSONDecodeError as e:
+        print(f"[ERROR] Failed to parse JSON from API response: {str(e)}")
+        print(f"[DEBUG] JSON error position: {getattr(e, 'pos', 'unknown')}")
+        # Fallback: distribute images in round-robin fashion
+        return [(i, i % len(image_files_list)) for i in range(len(flashcards_data))]
+    except ValueError as e:
+        print(f"[ERROR] Invalid API response format: {str(e)}")
+        # Fallback: distribute images in round-robin fashion
+        return [(i, i % len(image_files_list)) for i in range(len(flashcards_data))]
     except Exception as e:
-        print(f"[WARNING] Failed to match images to flashcards: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        # Fallback: assign first image to all
-        return [(i, 0) for i in range(len(flashcards_data))]
+        error_str = str(e).lower()
+        error_type = type(e).__name__
+        
+        print(f"[ERROR] Failed to match images to flashcards - Type: {error_type}, Error: {str(e)}")
+        
+        # Check for specific API errors
+        model_name = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
+        if 'quota' in error_str or 'rate limit' in error_str or '429' in error_str:
+            print("[ERROR] Groq API quota/rate limit exceeded")
+        elif '401' in error_str or 'unauthorized' in error_str or ('invalid' in error_str and 'key' in error_str):
+            print("[ERROR] Groq API key invalid or unauthorized")
+        elif 'model' in error_str and ('not found' in error_str or 'invalid' in error_str or 'unavailable' in error_str):
+            print(f"[ERROR] Groq model '{model_name}' not available")
+        elif 'connection' in error_str or 'timeout' in error_str or 'network' in error_str:
+            print("[ERROR] Network/connection error with Groq API")
+        else:
+            import traceback
+            print("[DEBUG] Full traceback:")
+            traceback.print_exc()
+        
+        # Fallback: distribute images in round-robin fashion
+        return [(i, i % len(image_files_list)) for i in range(len(flashcards_data))]
 
 
 def extract_text_from_image_ocr(file_path):
