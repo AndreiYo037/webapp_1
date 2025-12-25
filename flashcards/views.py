@@ -83,72 +83,78 @@ def upload_file(request):
                     
                     # Determine if source file is an image or contains extractable images
                     is_image_file = file_type.startswith('image/')
-                    extracted_image_file = None
+                    extracted_image_files = []
                     
-                    # Try to extract images from PDF/Word documents
+                    # Try to extract all images from PDF/Word documents
                     if not is_image_file:
                         try:
+                            images = []
                             if file_type == 'application/pdf' or file_path.endswith('.pdf'):
-                                img = extract_first_image_from_pdf(file_path)
-                                if img:
-                                    # Save extracted image as a new UploadedFile
-                                    img_buffer = io.BytesIO()
-                                    img.save(img_buffer, format='PNG')
-                                    img_buffer.seek(0)
-                                    
-                                    extracted_image_file = UploadedFile(
-                                        user=file_obj.user,
-                                        filename=f"{file_obj.filename}_preview.png",
-                                        file_type='image/png'
-                                    )
-                                    extracted_image_file.file.save(
-                                        f"{file_obj.filename}_preview.png",
-                                        ContentFile(img_buffer.getvalue()),
-                                        save=True
-                                    )
-                                    extracted_image_file.processed = True
-                                    extracted_image_file.save()
-                                    print(f"[INFO] Extracted preview image from PDF: {extracted_image_file.filename}")
+                                images = extract_all_images_from_pdf(file_path)
+                                print(f"[INFO] Extracted {len(images)} pages/images from PDF")
                             
                             elif file_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
                                               'application/msword'] or file_path.endswith(('.docx', '.doc')):
-                                img = extract_first_image_from_docx(file_path)
-                                if img:
-                                    # Save extracted image as a new UploadedFile
-                                    img_buffer = io.BytesIO()
-                                    # Determine format from original image or use PNG
-                                    img_format = 'PNG'
-                                    img_buffer.seek(0)
-                                    img.save(img_buffer, format=img_format)
-                                    img_buffer.seek(0)
-                                    
-                                    extracted_image_file = UploadedFile(
-                                        user=file_obj.user,
-                                        filename=f"{file_obj.filename}_preview.png",
-                                        file_type='image/png'
-                                    )
-                                    extracted_image_file.file.save(
-                                        f"{file_obj.filename}_preview.png",
-                                        ContentFile(img_buffer.getvalue()),
-                                        save=True
-                                    )
-                                    extracted_image_file.processed = True
-                                    extracted_image_file.save()
-                                    print(f"[INFO] Extracted preview image from Word document: {extracted_image_file.filename}")
+                                images = extract_all_images_from_docx(file_path)
+                                print(f"[INFO] Extracted {len(images)} images from Word document")
+                            
+                            # Save all extracted images as UploadedFile records
+                            for idx, img in enumerate(images):
+                                img_buffer = io.BytesIO()
+                                img.save(img_buffer, format='PNG')
+                                img_buffer.seek(0)
+                                
+                                extracted_image_file = UploadedFile(
+                                    user=file_obj.user,
+                                    filename=f"{file_obj.filename}_img_{idx+1}.png",
+                                    file_type='image/png'
+                                )
+                                extracted_image_file.file.save(
+                                    f"{file_obj.filename}_img_{idx+1}.png",
+                                    ContentFile(img_buffer.getvalue()),
+                                    save=True
+                                )
+                                extracted_image_file.processed = True
+                                extracted_image_file.save()
+                                extracted_image_files.append(extracted_image_file)
+                                print(f"[INFO] Saved extracted image {idx+1}/{len(images)}: {extracted_image_file.filename}")
+                                
                         except Exception as e:
-                            print(f"[WARNING] Failed to extract image from document: {str(e)}")
-                            extracted_image_file = None
+                            print(f"[WARNING] Failed to extract images from document: {str(e)}")
+                            extracted_image_files = []
+                    else:
+                        # Single image file - use it directly
+                        extracted_image_files = [file_obj]
                     
-                    # Determine which image to use for flashcards
-                    image_for_flashcards = file_obj if is_image_file else extracted_image_file
+                    # Match images to flashcards
+                    image_matches = None
+                    if extracted_image_files and len(extracted_image_files) > 0:
+                        print(f"[INFO] Matching {len(extracted_image_files)} images to {len(flashcards_data)} flashcards...")
+                        image_matches = match_images_to_flashcards(flashcards_data, extracted_image_files, text)
+                        if image_matches:
+                            print(f"[INFO] Successfully matched images to flashcards")
+                        else:
+                            # Fallback: use first image for all
+                            image_matches = [(i, 0) for i in range(len(flashcards_data))]
                     
-                    # Create flashcards
-                    for card_data in flashcards_data:
+                    # Create flashcards with matched images
+                    for idx, card_data in enumerate(flashcards_data):
+                        # Determine which image to use for this flashcard
+                        matched_image = None
+                        if image_matches and idx < len(image_matches):
+                            q_idx, img_idx = image_matches[idx]
+                            if img_idx < len(extracted_image_files):
+                                matched_image = extracted_image_files[img_idx]
+                        
+                        # Fallback to first image if no match
+                        if not matched_image and extracted_image_files:
+                            matched_image = extracted_image_files[0]
+                        
                         Flashcard.objects.create(
                             flashcard_set=flashcard_set,
                             question=card_data['question'],
                             answer=card_data['answer'],
-                            source_image=image_for_flashcards
+                            source_image=matched_image
                         )
                     
                     word_count = len(text.split())
