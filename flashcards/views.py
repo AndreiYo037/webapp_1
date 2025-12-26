@@ -174,7 +174,42 @@ def upload_file(request):
                             # Lowered threshold to 0.15 (15%) to allow more images to be displayed
                             if matched_region and matched_region.image and confidence >= 0.15 and confidence != 0.5:
                                 try:
-                                    # Save cropped region image
+                                    # Check if image is blank/white before saving
+                                    import numpy as np
+                                    img = matched_region.image
+                                    
+                                    # Convert to RGB if needed
+                                    if img.mode != 'RGB':
+                                        img = img.convert('RGB')
+                                    
+                                    # Check if image is mostly blank/white
+                                    img_array = np.array(img)
+                                    white_pixels = np.sum(np.all(img_array > 240, axis=2))
+                                    total_pixels = img_array.shape[0] * img_array.shape[1]
+                                    white_ratio = white_pixels / total_pixels if total_pixels > 0 else 0
+                                    variance = np.var(img_array)
+                                    
+                                    # Skip if image is >95% white OR has very low variance (<100)
+                                    if white_ratio > 0.95 or variance < 100:
+                                        print(f"[WARNING] Skipped blank/white region for flashcard {idx+1} (white_ratio: {white_ratio:.2f}, variance: {variance:.1f})")
+                                    else:
+                                        # Save cropped region image
+                                        img_buffer = io.BytesIO()
+                                        img.save(img_buffer, format='PNG')
+                                        img_buffer.seek(0)
+                                        
+                                        filename = f"flashcard_{flashcard.id}_region_{matched_region.region_type}.png"
+                                        flashcard.cropped_image.save(
+                                            filename,
+                                            ContentFile(img_buffer.getvalue()),
+                                            save=True
+                                        )
+                                        # Explicitly save the flashcard to ensure the image field is persisted
+                                        flashcard.save()
+                                        print(f"[SUCCESS] Saved {matched_region.region_type} region for flashcard {idx+1} (confidence: {confidence:.2f}, type: SEMANTIC, size: {img.width}x{img.height})")
+                                        print(f"[DEBUG] Flashcard {flashcard.id} cropped_image saved: {flashcard.cropped_image.name}, exists: {flashcard.cropped_image.name and flashcard.cropped_image.storage.exists(flashcard.cropped_image.name) if flashcard.cropped_image.name else False}")
+                                except ImportError:
+                                    # If numpy not available, save without blank check
                                     img_buffer = io.BytesIO()
                                     matched_region.image.save(img_buffer, format='PNG')
                                     img_buffer.seek(0)
@@ -185,10 +220,8 @@ def upload_file(request):
                                         ContentFile(img_buffer.getvalue()),
                                         save=True
                                     )
-                                    # Explicitly save the flashcard to ensure the image field is persisted
                                     flashcard.save()
                                     print(f"[SUCCESS] Saved {matched_region.region_type} region for flashcard {idx+1} (confidence: {confidence:.2f}, type: SEMANTIC)")
-                                    print(f"[DEBUG] Flashcard {flashcard.id} cropped_image saved: {flashcard.cropped_image.name}, exists: {flashcard.cropped_image.name and flashcard.cropped_image.storage.exists(flashcard.cropped_image.name) if flashcard.cropped_image.name else False}")
                                 except Exception as e:
                                     print(f"[WARNING] Failed to save region for flashcard {idx+1}: {str(e)}")
                             else:
