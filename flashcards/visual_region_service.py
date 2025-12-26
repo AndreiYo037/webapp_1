@@ -465,10 +465,11 @@ class SemanticMatcher:
             return self._fallback_match(regions, questions)
         
         try:
-            # Limit regions to prevent memory issues, but allow more for better coverage
-            MAX_REGIONS = 50  # Increased from 20 to 50 to process more regions
+            # Limit regions to prevent memory/timeout issues
+            # Processing too many regions causes worker timeouts (>4 minutes for 50 regions)
+            MAX_REGIONS = 25  # Reduced to 25 to prevent timeouts while still processing good coverage
             if len(regions) > MAX_REGIONS:
-                print(f"[WARNING] Too many regions ({len(regions)}), limiting to top {MAX_REGIONS} for memory safety")
+                print(f"[WARNING] Too many regions ({len(regions)}), limiting to top {MAX_REGIONS} for memory/timeout safety")
                 regions = regions[:MAX_REGIONS]
             
             # Process all regions up to MAX_REGIONS limit (already limited above)
@@ -491,9 +492,9 @@ class SemanticMatcher:
                 if question_embeddings is None:
                     raise Exception("Failed to generate question embeddings")
                 
-                # Process regions with very small batches to avoid memory issues
-                # Use batch size of 4 for regions to minimize memory footprint
-                region_embeddings = self.generate_embeddings(region_texts, batch_size=4)
+                # Process regions with optimized batch size to balance speed and memory
+                # Increased batch size from 4 to 8 to process faster and avoid timeouts
+                region_embeddings = self.generate_embeddings(region_texts, batch_size=8)
                 if region_embeddings is None:
                     raise Exception("Failed to generate region embeddings")
                     
@@ -655,10 +656,11 @@ class VisualRegionPipeline:
             
             print(f"[INFO] Detected {len(regions)} visual regions")
             
-            # Limit regions if too many to prevent memory issues, but allow more for better coverage
-            MAX_SAFE_REGIONS = 50  # Increased from 20 to 50 to process more regions from all pages
+            # Limit regions to prevent memory/timeout issues
+            # Processing too many regions causes worker timeouts
+            MAX_SAFE_REGIONS = 25  # Reduced to 25 to prevent timeouts while maintaining good coverage
             if len(regions) > MAX_SAFE_REGIONS:
-                print(f"[WARNING] Too many regions ({len(regions)}) detected. Limiting to top {MAX_SAFE_REGIONS} for memory safety.")
+                print(f"[WARNING] Too many regions ({len(regions)}) detected. Limiting to top {MAX_SAFE_REGIONS} for memory/timeout safety.")
                 regions = regions[:MAX_SAFE_REGIONS]
             
             # Try semantic matching on the (possibly limited) regions
