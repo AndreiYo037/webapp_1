@@ -1,7 +1,9 @@
 # Gunicorn configuration file
 import multiprocessing
 
-bind = "0.0.0.0:8000"
+import os
+# Railway requires using PORT environment variable
+bind = f"0.0.0.0:{os.environ.get('PORT', '8000')}"
 workers = multiprocessing.cpu_count() * 2 + 1
 worker_class = "sync"
 timeout = 120

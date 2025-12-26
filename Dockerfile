@@ -54,17 +54,11 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Collect static files (if using Django)
 RUN python manage.py collectstatic --noinput || true
 
-# Expose port
-EXPOSE 8000
+# Expose port (PORT will be set by Railway at runtime)
+EXPOSE ${PORT:-8000}
 
-# Create startup script to run migrations before starting server
-RUN echo '#!/bin/bash' > /app/start.sh && \
-    echo 'set -e' >> /app/start.sh && \
-    echo 'echo "[INFO] Running database migrations..."' >> /app/start.sh && \
-    echo 'python manage.py migrate --noinput || echo "[WARNING] Migrations failed, continuing anyway..."' >> /app/start.sh && \
-    echo 'echo "[INFO] Starting gunicorn server..."' >> /app/start.sh && \
-    echo 'exec gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 120 flashcard_app.wsgi:application' >> /app/start.sh && \
-    chmod +x /app/start.sh
+# Note: Railway uses Nixpacks, not Dockerfile, but if Docker is used, ensure PORT is used
+# The start.sh script in the repo will be used, which handles PORT correctly
 
 # Run startup script (which runs migrations then starts gunicorn)
 CMD ["/app/start.sh"]

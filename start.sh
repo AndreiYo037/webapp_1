@@ -1,33 +1,40 @@
 #!/bin/bash
-set -e  # Exit on error
+set -e
 
+# CRITICAL: Force unbuffered output so logs show immediately
+export PYTHONUNBUFFERED=1
+
+# Print startup banner - this MUST appear in logs
 echo "=========================================="
 echo "[STARTUP] Flashcard App Starting"
 echo "=========================================="
+echo "[CRITICAL] Checking PORT environment variable..."
 
-# Debug: Print PORT environment variable
-echo "[DEBUG] PORT environment variable: ${PORT:-NOT SET}"
+# CRITICAL: Railway MUST provide PORT - check it exists
 if [ -z "$PORT" ]; then
-    echo "[ERROR] PORT environment variable is NOT SET!"
-    echo "[ERROR] Railway requires your app to listen on \$PORT"
-    echo "[ERROR] This will cause 502 Bad Gateway errors"
-    echo "[ERROR] Attempting to use port 8000 as fallback..."
-    export PORT=8000
-else
-    echo "[SUCCESS] PORT is set to: ${PORT}"
+    echo "[FATAL] PORT environment variable is NOT SET!"
+    echo "[FATAL] Railway requires your app to listen on \$PORT"
+    echo "[FATAL] This WILL cause 502 Bad Gateway errors"
+    echo "[FATAL] Exiting to prevent deployment with wrong port..."
+    exit 1
 fi
+
+echo "[SUCCESS] PORT is set to: ${PORT}"
+echo "[INFO] This is the port Railway expects the app to listen on"
 
 echo "[INFO] Running database migrations..."
 python manage.py migrate --noinput || {
     echo "[WARNING] Migrations failed, continuing anyway..."
 }
 
-echo "[INFO] Starting gunicorn server on 0.0.0.0:${PORT}..."
+echo "[INFO] Starting gunicorn server..."
+echo "[INFO] Binding to: 0.0.0.0:${PORT}"
 echo "=========================================="
 
-# Start gunicorn - MUST use $PORT (no default, fail if not set)
+# CRITICAL: Use $PORT directly - NO fallback, NO default
+# Railway's proxy routes to this exact port
 exec gunicorn flashcard_app.wsgi:application \
-    --bind 0.0.0.0:${PORT} \
+    --bind "0.0.0.0:${PORT}" \
     --workers 2 \
     --timeout 120 \
     --keep-alive 5 \
@@ -37,5 +44,6 @@ exec gunicorn flashcard_app.wsgi:application \
     --error-logfile - \
     --log-level info \
     --capture-output \
-    --enable-stdio-inheritance
+    --enable-stdio-inheritance \
+    --name flashcard_app
 
