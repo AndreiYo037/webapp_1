@@ -303,6 +303,36 @@ class VisualRegionDetector:
         try:
             cropped = page_image.crop((x0, y0, x1, y1))
             
+            # CRITICAL: Enforce minimum size BEFORE checking if blank
+            # Reject regions that are too small to be useful (must be at least 200x150px)
+            min_width = 200
+            min_height = 150
+            if cropped.width < min_width or cropped.height < min_height:
+                # Try to expand crop to minimum size while staying within page bounds
+                center_x = (x0 + x1) // 2
+                center_y = (y0 + y1) // 2
+                new_x0 = max(0, center_x - min_width // 2)
+                new_y0 = max(0, center_y - min_height // 2)
+                new_x1 = min(page_image.width, new_x0 + min_width)
+                new_y1 = min(page_image.height, new_y0 + min_height)
+                # Adjust if we hit boundaries
+                if new_x1 - new_x0 < min_width:
+                    new_x0 = max(0, new_x1 - min_width)
+                if new_y1 - new_y0 < min_height:
+                    new_y0 = max(0, new_y1 - min_height)
+                
+                # Re-crop with expanded bounds
+                cropped = page_image.crop((new_x0, new_y0, new_x1, new_y1))
+                width = new_x1 - new_x0
+                height = new_y1 - new_y0
+                x0, y0, x1, y1 = new_x0, new_y0, new_x1, new_y1
+                print(f"[DEBUG] Expanded small region from {x1-x0}x{y1-y0} to {width}x{height}")
+            
+            # CRITICAL: Reject regions that are still too small after expansion
+            if cropped.width < 150 or cropped.height < 100:
+                print(f"[DEBUG] Rejected region too small: {cropped.width}x{cropped.height} (minimum: 150x100)")
+                return None
+            
             # CRITICAL: Check if cropped region is blank/white BEFORE creating VisualRegion
             # This prevents blank regions from being matched to questions
             try:
