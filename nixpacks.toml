@@ -10,15 +10,6 @@ cmds = [
   "/opt/venv/bin/python manage.py collectstatic --noinput"
 ]
 
-[phases.install]
-cmds = [
-  "python -m venv /opt/venv",
-  "source /opt/venv/bin/activate",
-  "/opt/venv/bin/pip install --upgrade pip",
-  "/opt/venv/bin/pip install -r requirements.txt",
-  "/opt/venv/bin/python manage.py collectstatic --noinput"
-]
-
 [start]
-cmd = "/opt/venv/bin/python manage.py migrate --noinput && /opt/venv/bin/gunicorn flashcard_app.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --log-file -"
+cmd = "bash start.sh"
 
