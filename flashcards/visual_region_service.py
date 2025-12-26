@@ -471,10 +471,8 @@ class SemanticMatcher:
                 print(f"[WARNING] Too many regions ({len(regions)}), limiting to top {MAX_REGIONS} for memory safety")
                 regions = regions[:MAX_REGIONS]
             
-            # If still too many regions after limiting, use fallback immediately
-            if len(regions) > 30:
-                print(f"[WARNING] Too many regions ({len(regions)}) even after limiting, using fallback matching")
-                return self._fallback_match(regions, questions)
+            # Process all regions up to MAX_REGIONS limit (already limited above)
+            # No need for additional fallback - semantic matching can handle up to 50 regions
             
             # Extract text descriptions from regions using OCR
             print(f"[INFO] Extracting text from {len(regions)} regions...")
