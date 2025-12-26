@@ -185,7 +185,10 @@ def upload_file(request):
                                         ContentFile(img_buffer.getvalue()),
                                         save=True
                                     )
+                                    # Explicitly save the flashcard to ensure the image field is persisted
+                                    flashcard.save()
                                     print(f"[SUCCESS] Saved {matched_region.region_type} region for flashcard {idx+1} (confidence: {confidence:.2f}, type: SEMANTIC)")
+                                    print(f"[DEBUG] Flashcard {flashcard.id} cropped_image saved: {flashcard.cropped_image.name}, exists: {flashcard.cropped_image.name and flashcard.cropped_image.storage.exists(flashcard.cropped_image.name) if flashcard.cropped_image.name else False}")
                                 except Exception as e:
                                     print(f"[WARNING] Failed to save region for flashcard {idx+1}: {str(e)}")
                             else:
