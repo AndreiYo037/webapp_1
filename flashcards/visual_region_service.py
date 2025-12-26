@@ -486,12 +486,9 @@ class SemanticMatcher:
             return self._fallback_match(regions, questions)
         
         try:
-            # Limit regions to prevent memory/timeout issues, but allow more for better coverage
-            # With optimized batch processing (batch size 16), we can handle more regions
-            MAX_REGIONS = 50  # Increased to 50 to process more regions for better matching
-            if len(regions) > MAX_REGIONS:
-                print(f"[WARNING] Too many regions ({len(regions)}), limiting to top {MAX_REGIONS} for memory/timeout safety")
-                regions = regions[:MAX_REGIONS]
+            # Process all regions - no limit
+            # With optimized batch processing (batch size 16), we can handle all regions
+            print(f"[INFO] Processing all {len(regions)} regions for semantic matching")
             
             # Process all regions up to MAX_REGIONS limit (already limited above)
             # No need for additional fallback - semantic matching can handle up to 50 regions
@@ -693,12 +690,9 @@ class VisualRegionPipeline:
             
             print(f"[INFO] Detected {len(regions)} visual regions")
             
-            # Limit regions to prevent memory/timeout issues, but allow more for better coverage
-            # With optimized batch processing (batch size 16), we can handle more regions
-            MAX_SAFE_REGIONS = 50  # Increased to 50 to process more regions from all pages
-            if len(regions) > MAX_SAFE_REGIONS:
-                print(f"[WARNING] Too many regions ({len(regions)}) detected. Limiting to top {MAX_SAFE_REGIONS} for memory/timeout safety.")
-                regions = regions[:MAX_SAFE_REGIONS]
+            # Process all regions - no limit
+            # With optimized batch processing (batch size 16), we can handle all regions
+            print(f"[INFO] Processing all {len(regions)} detected regions for semantic matching")
             
             # Try semantic matching on the (possibly limited) regions
             # Match regions to questions with comprehensive error handling
