@@ -486,6 +486,22 @@ def list_flashcard_sets(request):
     })
 
 
+def signup(request):
+    """User registration view"""
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            username = form.cleaned_data.get('username')
+            messages.success(request, f'Account created for {username}! You can now log in.')
+            # Automatically log in the user
+            login(request, user)
+            return redirect('index')
+    else:
+        form = UserCreationForm()
+    return render(request, 'flashcards/signup.html', {'form': form})
+
+
 def health_check(request):
     """Health check endpoint for Railway and other platforms"""
     try:
