@@ -638,16 +638,14 @@ class SemanticMatcher:
             text = pytesseract.image_to_string(img, lang='eng', config='--psm 6')
             text = text.strip()
             
-            # If OCR returns very little text, try multiple PSM modes to get better extraction
+            # If OCR returns very little text, try one additional PSM mode for faster processing
+            # Reduced from 4 PSM modes to 1 for faster runtime
             if len(text) < 10:
                 try:
-                    # Try different PSM modes to get better text extraction
-                    for psm_mode in [6, 11, 3, 8]:
-                        alt_text = pytesseract.image_to_string(img, lang='eng', config=f'--psm {psm_mode}')
-                        if len(alt_text.strip()) > len(text.strip()):
-                            text = alt_text.strip()
-                            if len(text) >= 10:
-                                break
+                    # Try one additional PSM mode (6 is usually best for single blocks)
+                    alt_text = pytesseract.image_to_string(img, lang='eng', config='--psm 6')
+                    if len(alt_text.strip()) > len(text.strip()):
+                        text = alt_text.strip()
                 except:
                     pass
                 
