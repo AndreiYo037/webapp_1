@@ -216,7 +216,7 @@ if not DEBUG and LLM_PROVIDER == 'ollama':
 # Groq Configuration (Free, Cloud-Based - Works on all platforms!)
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 GROQ_MODEL = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')  # Options: llama-3.3-70b-versatile, mixtral-8x7b-32768, gemma2-9b-it
-GROQ_VISION_MODEL = os.getenv('GROQ_VISION_MODEL', 'llava-3.2-11b-v1.1')  # For image/diagram understanding
+GROQ_VISION_MODEL = os.getenv('GROQ_VISION_MODEL', 'llava-3.1-70b-versatile')  # For image/diagram understanding
 
 # Gemini Configuration (Free, Cloud-Based - Google AI)
 # Note: Vision analysis now uses Groq by default, but Gemini is still available for text generation

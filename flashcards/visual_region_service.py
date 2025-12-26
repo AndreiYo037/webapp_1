@@ -714,7 +714,7 @@ class VisualRegionPipeline:
             # Try semantic matching on the (possibly limited) regions
             # Match regions to questions with comprehensive error handling
             try:
-                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.45)
+                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.25)
             except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
                 print(f"[ERROR] Memory/runtime error during matching: {type(mem_err).__name__}: {str(mem_err)}")
                 print("[INFO] No images will be displayed - semantic matching failed")
