@@ -14,10 +14,17 @@ python manage.py migrate --noinput || {
 
 # Railway sets PORT dynamically - we MUST use it
 # If PORT is not set, something is wrong, but we'll default to 8000 for safety
-# Use $PORT if set, otherwise try to get it from Railway's environment
-LISTEN_PORT=${PORT:-${RAILWAY_PORT:-8000}}
-echo "[INFO] Starting gunicorn server on port ${LISTEN_PORT}..." >&2
-echo "[INFO] Railway expects app on PORT=${PORT:-not set}" >&2
+LISTEN_PORT=${PORT:-8000}
+
+# Critical: Railway requires binding to $PORT
+if [ -z "$PORT" ]; then
+    echo "[WARNING] PORT environment variable not set! Railway may not route traffic correctly." >&2
+    echo "[WARNING] Defaulting to port 8000, but this may cause 502 errors." >&2
+else
+    echo "[INFO] Using Railway PORT=${PORT}" >&2
+fi
+
+echo "[INFO] Starting gunicorn server on 0.0.0.0:${LISTEN_PORT}..." >&2
 
 # Start gunicorn - Railway will route traffic to this port
 exec gunicorn flashcard_app.wsgi:application \
