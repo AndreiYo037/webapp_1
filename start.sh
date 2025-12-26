@@ -1,18 +1,23 @@
 #!/bin/bash
-set -e
+# Don't use set -e here - we want to handle errors gracefully
+set -o pipefail
 
-# Debug: Print environment variables
-echo "[DEBUG] PORT environment variable: ${PORT:-not set, using 8000}"
-echo "[DEBUG] DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-not set}"
-echo "[DEBUG] PYTHONPATH: ${PYTHONPATH:-not set}"
+# Debug: Print environment variables (force output to stderr so it shows in logs)
+echo "[DEBUG] PORT environment variable: ${PORT:-not set, using 8000}" >&2
+echo "[DEBUG] All environment variables:" >&2
+env | grep -E "(PORT|DJANGO|PYTHON)" | head -20 >&2 || true
 
-echo "[INFO] Running database migrations..."
-python manage.py migrate --noinput || echo "[WARNING] Migrations failed, continuing anyway..."
+echo "[INFO] Running database migrations..." >&2
+python manage.py migrate --noinput || {
+    echo "[WARNING] Migrations failed, continuing anyway..." >&2
+}
 
-# Use PORT if set, otherwise default to 8000
+# Railway sets PORT dynamically - we MUST use it
+# If PORT is not set, something is wrong, but we'll default to 8000 for safety
 LISTEN_PORT=${PORT:-8000}
-echo "[INFO] Starting gunicorn server on port ${LISTEN_PORT}..."
+echo "[INFO] Starting gunicorn server on port ${LISTEN_PORT}..." >&2
 
+# Start gunicorn - Railway will route traffic to this port
 exec gunicorn flashcard_app.wsgi:application \
     --bind 0.0.0.0:${LISTEN_PORT} \
     --workers 2 \
@@ -23,5 +28,6 @@ exec gunicorn flashcard_app.wsgi:application \
     --access-logfile - \
     --error-logfile - \
     --log-level info \
-    --capture-output
+    --capture-output \
+    --enable-stdio-inheritance
 
