@@ -36,7 +36,7 @@ class VisualRegion:
                  region_type: str, confidence: float, image: Image.Image = None):
         self.bbox = bbox  # (x0, y0, x1, y1)
         self.page_num = page_num
-        self.region_type = region_type  # 'graph', 'table', 'diagram', 'formula', 'bullet_cluster'
+        self.region_type = region_type  # 'table' (only table regions are used)
         self.confidence = confidence
         self.image = image
         self.embedding = None  # Will be populated for semantic matching
@@ -106,7 +106,7 @@ class VisualRegionDetector:
                     region = VisualRegion(
                         bbox=bbox,
                         page_num=idx,  # Use index as page number
-                        region_type='diagram',  # Default type
+                        region_type='table',  # Default type
                         confidence=0.8,
                         image=img
                     )
@@ -146,7 +146,7 @@ class VisualRegionDetector:
                 for block in blocks:
                     if "image" in block:  # Image block
                         bbox = block["bbox"]  # (x0, y0, x1, y1)
-                        region = self._create_region_from_bbox(bbox, page_image, page_num, "diagram")
+                        region = self._create_region_from_bbox(bbox, page_image, page_num, "table")
                         if region:
                             regions.append(region)
             except:
@@ -205,45 +205,9 @@ class VisualRegionDetector:
             return []
     
     def _classify_region_type(self, width: int, height: int, area: int, region_gray: np.ndarray) -> str:
-        """Classify the type of visual region based on characteristics"""
-        if not CV2_AVAILABLE:
-            return "diagram"
-        
-        try:
-            
-            aspect_ratio = width / height if height > 0 else 1
-            
-            # Detect horizontal lines (tables)
-            horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
-            horizontal_lines = cv2.morphologyEx(region_gray, cv2.MORPH_OPEN, horizontal_kernel)
-            h_line_count = np.sum(horizontal_lines > 0) / (width * height)
-            
-            # Detect vertical lines (tables)
-            vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 40))
-            vertical_lines = cv2.morphologyEx(region_gray, cv2.MORPH_OPEN, vertical_kernel)
-            v_line_count = np.sum(vertical_lines > 0) / (width * height)
-            
-            # Table detection
-            if h_line_count > 0.1 and v_line_count > 0.05:
-                return "table"
-            
-            # Formula detection (usually narrow, tall regions with dense content)
-            if aspect_ratio < 0.5 and area > 10000:
-                return "formula"
-            
-            # Bullet cluster (usually vertical list)
-            if aspect_ratio < 0.7 and area > 15000:
-                return "bullet_cluster"
-            
-            # Graph (usually square-ish with lines/curves)
-            if 0.7 <= aspect_ratio <= 1.5:
-                return "graph"
-            
-            # Default to diagram
-            return "diagram"
-            
-        except:
-            return "diagram"
+        """Classify the type of visual region - all regions are classified as 'table'"""
+        # Always return 'table' for all visual regions
+        return "table"
     
     def _detect_tables(self, gray: np.ndarray, page_image: Image.Image, page_num: int) -> List[VisualRegion]:
         """Detect table regions using line detection"""
@@ -614,10 +578,10 @@ class SemanticMatcher:
             
         except ImportError:
             # Fallback: create descriptive text
-            return f"{region.region_type} diagram on page {region.page_num + 1}"
+            return f"{region.region_type} on page {region.page_num + 1}"
         except Exception as e:
             # Fallback: create descriptive text
-            return f"{region.region_type} diagram on page {region.page_num + 1}"
+            return f"{region.region_type} on page {region.page_num + 1}"
 
 
 class VisualRegionPipeline:
