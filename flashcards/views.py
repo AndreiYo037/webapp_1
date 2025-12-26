@@ -273,7 +273,11 @@ def upload_file(request):
                         """Check if an image is mostly blank/white"""
                         try:
                             from PIL import Image
-                            import numpy as np
+                            try:
+                                import numpy as np
+                            except ImportError:
+                                # If numpy not available, can't check - assume not blank
+                                return False
                             
                             # Open and check the image
                             img = Image.open(image_file.file)
