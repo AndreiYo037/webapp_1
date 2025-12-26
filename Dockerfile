@@ -59,5 +59,5 @@ RUN python manage.py collectstatic --noinput || true
 EXPOSE 8000
 
 # Run gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "your_project_name.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "flashcard_app.wsgi:application"]
 
