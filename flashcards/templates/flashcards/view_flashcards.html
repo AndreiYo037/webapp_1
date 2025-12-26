@@ -17,69 +17,72 @@
         <div class="flashcard" id="flashcard-{{ flashcard.id }}">
             <div class="flashcard-inner">
                 <div class="flashcard-front">
-                    <div>
+                    <div class="flashcard-content">
                         <h3>Question {{ forloop.counter }}</h3>
-                        <p style="font-size: 1.2em; margin-top: 10px; margin-bottom: 10px;">{{ flashcard.question }}</p>
+                        <p class="flashcard-text">{{ flashcard.question }}</p>
                         {% if flashcard.cropped_image %}
-                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                            <div class="flashcard-image-container">
                                 <img src="{{ flashcard.cropped_image.url }}" 
                                      alt="Auto-cropped diagram for question" 
-                                     onerror="this.style.display='none'">
+                                     class="flashcard-image"
+                                     onerror="this.style.display='none'; console.error('Failed to load cropped image');">
                             </div>
                         {% elif flashcard.source_image %}
                             {% if flashcard.source_image.file %}
-                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                            <div class="flashcard-image-container">
                                 <img src="{{ flashcard.source_image.file.url }}" 
                                      alt="Diagram for question" 
-                                     onerror="this.style.display='none'">
+                                     class="flashcard-image"
+                                     onerror="this.style.display='none'; console.error('Failed to load source image');">
                             </div>
                             {% endif %}
                         {% elif source_file_is_image %}
                             {% if flashcard_set.file.file %}
-                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                            <div class="flashcard-image-container">
                                 <img src="{{ flashcard_set.file.file.url }}" 
                                      alt="Diagram for question" 
-                                     onerror="this.style.display='none'">
+                                     class="flashcard-image"
+                                     onerror="this.style.display='none'; console.error('Failed to load file image');">
                             </div>
                             {% endif %}
                         {% endif %}
                     </div>
                 </div>
                 <div class="flashcard-back">
-                    <div>
+                    <div class="flashcard-content">
                         <h3>Answer</h3>
-                        <p style="font-size: 1.1em; margin-top: 10px; margin-bottom: 10px;">{{ flashcard.answer }}</p>
+                        <p class="flashcard-text">{{ flashcard.answer }}</p>
                         {% if flashcard.cropped_image %}
-                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                            <div class="flashcard-image-container">
                                 <img src="{{ flashcard.cropped_image.url }}" 
                                      alt="Auto-cropped diagram reference" 
-                                     style="opacity: 0.7;"
-                                     onerror="this.style.display='none'">
+                                     class="flashcard-image flashcard-image-back"
+                                     onerror="this.style.display='none'; console.error('Failed to load cropped image on back');">
                             </div>
                         {% elif flashcard.source_image %}
                             {% if flashcard.source_image.file %}
-                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                            <div class="flashcard-image-container">
                                 <img src="{{ flashcard.source_image.file.url }}" 
                                      alt="Diagram reference" 
-                                     style="opacity: 0.7;"
-                                     onerror="this.style.display='none'">
+                                     class="flashcard-image flashcard-image-back"
+                                     onerror="this.style.display='none'; console.error('Failed to load source image on back');">
                             </div>
                             {% endif %}
                         {% elif source_file_is_image %}
                             {% if flashcard_set.file.file %}
-                            <div style="margin-top: 15px; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                            <div class="flashcard-image-container">
                                 <img src="{{ flashcard_set.file.file.url }}" 
                                      alt="Diagram reference" 
-                                     style="opacity: 0.7;"
-                                     onerror="this.style.display='none'">
+                                     class="flashcard-image flashcard-image-back"
+                                     onerror="this.style.display='none'; console.error('Failed to load file image on back');">
                             </div>
                             {% endif %}
                         {% endif %}
                     </div>
                 </div>
             </div>
-            <button onclick="flipCard({{ flashcard.id }})" class="btn" style="margin-top: 15px; width: 100%;">
-                Flip Card
+            <button onclick="flipCard({{ flashcard.id }})" class="btn flip-button" type="button">
+                <span class="flip-button-text">Flip Card</span>
             </button>
         </div>
         {% empty %}
@@ -91,8 +94,32 @@
 <script>
 function flipCard(id) {
     const card = document.getElementById('flashcard-' + id);
-    card.classList.toggle('flipped');
+    if (card) {
+        card.classList.toggle('flipped');
+        const button = card.querySelector('.flip-button');
+        const buttonText = button.querySelector('.flip-button-text');
+        if (card.classList.contains('flipped')) {
+            buttonText.textContent = 'Show Question';
+        } else {
+            buttonText.textContent = 'Flip Card';
+        }
+    } else {
+        console.error('Card not found:', id);
+    }
 }
+
+// Debug: Log image loading issues
+document.addEventListener('DOMContentLoaded', function() {
+    const images = document.querySelectorAll('.flashcard-image');
+    images.forEach((img, index) => {
+        img.addEventListener('error', function() {
+            console.error('Image failed to load:', this.src);
+        });
+        img.addEventListener('load', function() {
+            console.log('Image loaded successfully:', this.src);
+        });
+    });
+});
 </script>
 
 <style>
@@ -148,12 +175,13 @@ function flipCard(id) {
     transform: rotateY(180deg);
 }
 
-#flashcard-container .flashcard-front > div,
-#flashcard-container .flashcard-back > div {
+.flashcard-content {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    width: 100%;
+    height: 100%;
 }
 
 #flashcard-container .flashcard-front h3,
@@ -164,50 +192,73 @@ function flipCard(id) {
     color: white;
 }
 
-#flashcard-container .flashcard-front p,
-#flashcard-container .flashcard-back p {
+.flashcard-text {
     margin: 0 0 15px 0;
     word-wrap: break-word;
     overflow-wrap: break-word;
     flex-shrink: 0;
     line-height: 1.5;
     color: white;
+    font-size: 1.2em;
 }
 
-#flashcard-container .flashcard img {
+.flashcard-image-container {
+    margin-top: 15px;
+    text-align: center;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    min-height: 100px;
+    max-height: 250px;
+}
+
+.flashcard-image {
     max-width: 100%;
-    max-height: 220px;
+    max-height: 100%;
     width: auto;
     height: auto;
     object-fit: contain;
-    margin: 10px 0;
-    flex-shrink: 1;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    background: rgba(255, 255, 255, 0.1);
+    padding: 5px;
 }
 
-#flashcard-container .flashcard-front img,
-#flashcard-container .flashcard-back img {
-    cursor: pointer;
+.flashcard-image-back {
+    opacity: 0.7;
+}
+
+.flashcard-image:hover {
+    transform: scale(1.02);
     transition: transform 0.2s;
 }
 
-#flashcard-container .flashcard-front img:hover,
-#flashcard-container .flashcard-back img:hover {
-    transform: scale(1.02);
-}
-
-#flashcard-container .flashcard button {
+.flip-button {
     position: relative;
     z-index: 10;
     margin-top: 15px;
+    width: 100%;
     background: rgba(255, 255, 255, 0.2);
     border: 2px solid white;
     color: white;
+    padding: 12px 20px;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.3s ease;
 }
 
-#flashcard-container .flashcard button:hover {
+.flip-button:hover {
     background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.flip-button:active {
+    transform: translateY(0);
 }
 </style>
 {% endblock %}
