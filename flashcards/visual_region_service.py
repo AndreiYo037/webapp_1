@@ -303,6 +303,33 @@ class VisualRegionDetector:
         try:
             cropped = page_image.crop((x0, y0, x1, y1))
             
+            # CRITICAL: Check if cropped region is blank/white BEFORE creating VisualRegion
+            # This prevents blank regions from being matched to questions
+            try:
+                import numpy as np
+                # Convert to RGB if needed
+                check_img = cropped
+                if check_img.mode != 'RGB':
+                    check_img = check_img.convert('RGB')
+                
+                # Check if image is mostly blank/white
+                img_array = np.array(check_img)
+                white_pixels = np.sum(np.all(img_array > 240, axis=2))
+                total_pixels = img_array.shape[0] * img_array.shape[1]
+                white_ratio = white_pixels / total_pixels if total_pixels > 0 else 0
+                variance = np.var(img_array)
+                
+                # Reject if image is >95% white OR has very low variance (<100)
+                if white_ratio > 0.95 or variance < 100:
+                    print(f"[DEBUG] Rejected blank/white region at ({x0}, {y0}, {width}x{height}) - white_ratio: {white_ratio:.2f}, variance: {variance:.1f}")
+                    return None
+            except ImportError:
+                # If numpy not available, skip blank check (but log warning)
+                print(f"[WARNING] numpy not available, cannot check if region is blank")
+            except Exception as e:
+                # If check fails, continue (don't reject region on check error)
+                print(f"[WARNING] Error checking if region is blank: {str(e)}")
+            
             # Calculate confidence based on region characteristics
             area = width * height
             confidence = min(1.0, area / (page_image.width * page_image.height * 0.3))  # Max confidence if >30% of page
