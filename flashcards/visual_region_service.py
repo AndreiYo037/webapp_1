@@ -487,8 +487,8 @@ class SemanticMatcher:
         try:
             # Process regions with a reasonable limit to prevent timeouts
             # Processing 100+ regions causes worker timeouts (300s limit)
-            # Limit to 75 regions to stay within timeout while processing most content
-            MAX_SAFE_PROCESSING = 75  # Limit to prevent worker timeouts
+            # Limit to 50 regions to stay within timeout while processing most content
+            MAX_SAFE_PROCESSING = 50  # Limit to prevent worker timeouts
             if len(regions) > MAX_SAFE_PROCESSING:
                 print(f"[WARNING] Large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} to prevent worker timeout")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
