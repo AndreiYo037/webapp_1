@@ -485,13 +485,15 @@ class SemanticMatcher:
             return []
         
         try:
-            # Process all regions, but add safety check for extremely large numbers
-            # With optimized batch processing (batch size 16), we can handle most cases
-            # But if there are too many (200+), it might cause memory/timeout issues
-            MAX_SAFE_PROCESSING = 200  # Safety limit for extremely large numbers
+            # Process regions with a reasonable limit to prevent timeouts
+            # Processing 100+ regions causes worker timeouts (300s limit)
+            # Limit to 75 regions to stay within timeout while processing most content
+            MAX_SAFE_PROCESSING = 75  # Limit to prevent worker timeouts
             if len(regions) > MAX_SAFE_PROCESSING:
-                print(f"[WARNING] Extremely large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} for safety")
-                regions = regions[:MAX_SAFE_PROCESSING]
+                print(f"[WARNING] Large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} to prevent worker timeout")
+                print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
+                # Sort by confidence and take top regions for better quality
+                regions = sorted(regions, key=lambda r: r.confidence, reverse=True)[:MAX_SAFE_PROCESSING]
             else:
                 print(f"[INFO] Processing all {len(regions)} regions for semantic matching")
             
@@ -517,15 +519,18 @@ class SemanticMatcher:
                     raise Exception("Failed to generate question embeddings")
                 
                 # Process regions with optimized batch size
-                # Adjust batch size based on number of regions to prevent memory issues
-                if len(region_texts) > 100:
-                    # For large numbers, use smaller batches to prevent memory issues
+                # Adjust batch size based on number of regions to prevent memory/timeout issues
+                if len(region_texts) > 50:
+                    # For large numbers, use very small batches to prevent timeout
+                    region_batch_size = 4
+                elif len(region_texts) > 30:
+                    # For medium numbers, use small batches
                     region_batch_size = 8
                 else:
                     # For smaller numbers, use larger batches for speed
                     region_batch_size = 16
                 
-                print(f"[INFO] Processing {len(region_texts)} regions with batch size {region_batch_size}")
+                print(f"[INFO] Processing {len(region_texts)} regions with batch size {region_batch_size} (estimated {len(region_texts) // region_batch_size + 1} batches)")
                 region_embeddings = self.generate_embeddings(region_texts, batch_size=region_batch_size)
                 if region_embeddings is None:
                     raise Exception("Failed to generate region embeddings")
@@ -700,13 +705,15 @@ class VisualRegionPipeline:
             
             print(f"[INFO] Detected {len(regions)} visual regions")
             
-            # Process all regions, but add safety check for extremely large numbers
-            # With optimized batch processing (batch size 16), we can handle most cases
-            # But if there are too many (200+), it might cause memory/timeout issues
-            MAX_SAFE_PROCESSING = 200  # Safety limit for extremely large numbers
+            # Process regions with a reasonable limit to prevent timeouts
+            # Processing 100+ regions causes worker timeouts (300s limit)
+            # Limit to 75 regions to stay within timeout while processing most content
+            MAX_SAFE_PROCESSING = 75  # Limit to prevent worker timeouts
             if len(regions) > MAX_SAFE_PROCESSING:
-                print(f"[WARNING] Extremely large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} for safety")
-                regions = regions[:MAX_SAFE_PROCESSING]
+                print(f"[WARNING] Large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} to prevent worker timeout")
+                print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
+                # Sort by confidence and take top regions for better quality
+                regions = sorted(regions, key=lambda r: r.confidence, reverse=True)[:MAX_SAFE_PROCESSING]
             else:
                 print(f"[INFO] Processing all {len(regions)} detected regions for semantic matching")
             
