@@ -471,7 +471,7 @@ class SemanticMatcher:
     
     def match_regions_to_questions(self, regions: List[VisualRegion], 
                                   questions: List[str],
-                                  min_confidence: float = 0.25) -> List[Tuple[int, int, float]]:
+                                  min_confidence: float = 0.35) -> List[Tuple[int, int, float]]:
         """
         Match visual regions to questions using semantic similarity
         Returns list of (question_index, region_index, similarity_score) tuples
@@ -577,13 +577,13 @@ class SemanticMatcher:
                     print(f"[DEBUG] Question {q_idx+1} max similarity: {max_score:.3f}")
             
             # Adjust threshold if all scores are low but above a reasonable minimum
-            # Be more strict - only adjust if scores are close to threshold
-            if max_scores and max(max_scores) < min_confidence and max(max_scores) > 0.20:
-                # Only adjust if max score is within 20% of threshold (more strict)
-                adjusted_threshold = max(0.20, max(max_scores) * 0.95)  # Use 95% of max score, but not below 0.20
+            # Be very strict - only adjust if scores are close to threshold
+            if max_scores and max(max_scores) < min_confidence and max(max_scores) > 0.30:
+                # Only adjust if max score is within 30% of threshold (very strict)
+                adjusted_threshold = max(0.30, max(max_scores) * 0.97)  # Use 97% of max score, but not below 0.30
                 print(f"[INFO] Adjusting confidence threshold from {min_confidence} to {adjusted_threshold:.3f}")
                 min_confidence = adjusted_threshold
-            elif max_scores and max(max_scores) <= 0.20:
+            elif max_scores and max(max_scores) <= 0.30:
                 print(f"[WARNING] All similarity scores are very low (max: {max(max_scores):.3f}), no matches will be displayed")
             
             # Sort by similarity score (highest first)
@@ -721,7 +721,7 @@ class VisualRegionPipeline:
             # Try semantic matching on the (possibly limited) regions
             # Match regions to questions with comprehensive error handling
             try:
-                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.25)
+                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.35)
             except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
                 print(f"[ERROR] Memory/runtime error during matching: {type(mem_err).__name__}: {str(mem_err)}")
                 print("[INFO] No images will be displayed - semantic matching failed")
