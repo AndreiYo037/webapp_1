@@ -127,10 +127,9 @@ class VisualRegionDetector:
         regions = []
         
         if not CV2_AVAILABLE:
-            # Fallback: treat entire page as one region
-            bbox = (0, 0, page_image.width, page_image.height)
-            region = VisualRegion(bbox, page_num, "diagram", 0.5, page_image)
-            return [region]
+            # Don't create entire page regions - return empty if OpenCV not available
+            print(f"[WARNING] OpenCV not available, cannot detect regions on page {page_num + 1}")
+            return []
         
         try:
             
