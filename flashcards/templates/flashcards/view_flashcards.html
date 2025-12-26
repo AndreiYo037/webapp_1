@@ -21,6 +21,7 @@
                         <h3>Question {{ forloop.counter }}</h3>
                         <p class="flashcard-text">{{ flashcard.question }}</p>
                         {% if flashcard.cropped_image %}
+                            <!-- Debug: Flashcard {{ flashcard.id }} has cropped_image -->
                             <div class="flashcard-image-container" data-flashcard-id="{{ flashcard.id }}" data-image-type="cropped">
                                 <img src="{{ flashcard.cropped_image.url }}" 
                                      alt="Auto-cropped diagram for question" 
