@@ -10,6 +10,8 @@ from PIL import Image
 from .models import UploadedFile, FlashcardSet, Flashcard
 from .file_processor import extract_text_from_file, summarize_text, generate_flashcards_from_text, calculate_flashcard_count, extract_first_image_from_pdf, extract_first_image_from_docx, extract_all_images_from_pdf, extract_all_images_from_docx, match_images_to_flashcards, extract_all_images_from_pdf, extract_all_images_from_docx, understand_image_with_vision
 from .visual_region_service import VisualRegionPipeline
+from django.http import JsonResponse
+from django.db import connection
 
 
 def index(request):
@@ -320,5 +322,22 @@ def list_flashcard_sets(request):
     return render(request, 'flashcards/list_sets.html', {
         'flashcard_sets': sets
     })
+
+
+def health_check(request):
+    """Health check endpoint for Railway and other platforms"""
+    try:
+        # Test database connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        return JsonResponse({
+            'status': 'healthy',
+            'database': 'connected'
+        }, status=200)
+    except Exception as e:
+        return JsonResponse({
+            'status': 'unhealthy',
+            'error': str(e)
+        }, status=503)
 
 
