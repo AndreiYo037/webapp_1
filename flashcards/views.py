@@ -171,7 +171,8 @@ def upload_file(request):
                             
                             # Save cropped region if found and confidence is high enough
                             # Skip fallback matches (confidence == 0.5) - don't display irrelevant images
-                            if matched_region and matched_region.image and confidence >= 0.3 and confidence != 0.5:
+                            # Lowered threshold to 0.15 (15%) to allow more images to be displayed
+                            if matched_region and matched_region.image and confidence >= 0.15 and confidence != 0.5:
                                 try:
                                     # Save cropped region image
                                     img_buffer = io.BytesIO()
