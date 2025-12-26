@@ -471,7 +471,7 @@ class SemanticMatcher:
     
     def match_regions_to_questions(self, regions: List[VisualRegion], 
                                   questions: List[str],
-                                  min_confidence: float = 0.10) -> List[Tuple[int, int, float]]:
+                                  min_confidence: float = 0.25) -> List[Tuple[int, int, float]]:
         """
         Match visual regions to questions using semantic similarity
         Returns list of (question_index, region_index, similarity_score) tuples
@@ -720,7 +720,7 @@ class VisualRegionPipeline:
             # Try semantic matching on the (possibly limited) regions
             # Match regions to questions with comprehensive error handling
             try:
-                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.10)
+                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.25)
             except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
                 print(f"[ERROR] Memory/runtime error during matching: {type(mem_err).__name__}: {str(mem_err)}")
                 print("[INFO] No images will be displayed - semantic matching failed")
