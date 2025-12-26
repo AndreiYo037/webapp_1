@@ -500,10 +500,13 @@ class SemanticMatcher:
                     print(f"[DEBUG] Question {q_idx+1} max similarity: {max_score:.3f}")
             
             # Lower threshold if all scores are low but above a reasonable minimum
+            # Be more permissive to allow more matches
             if max_scores and max(max_scores) < min_confidence and max(max_scores) > 0.10:
-                adjusted_threshold = max(0.10, max(max_scores) * 0.8)  # Use 80% of max score
+                adjusted_threshold = max(0.10, max(max_scores) * 0.85)  # Use 85% of max score, but not below 0.10
                 print(f"[INFO] Adjusting confidence threshold from {min_confidence} to {adjusted_threshold:.3f}")
                 min_confidence = adjusted_threshold
+            elif max_scores and max(max_scores) <= 0.10:
+                print(f"[WARNING] All similarity scores are very low (max: {max(max_scores):.3f}), matches may not be relevant")
             
             # Sort by similarity score (highest first)
             for q_idx in range(len(questions)):
