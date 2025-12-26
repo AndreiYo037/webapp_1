@@ -113,8 +113,15 @@ def upload_file(request):
                                 region_matches = pipeline.process_document(file_path, file_type, questions)
                                 
                                 if region_matches and len(region_matches) > 0:
-                                    print(f"[INFO] Visual region pipeline matched {len(region_matches)} regions to questions")
-                                    use_visual_regions = True
+                                    # Check if any matches are semantic (not all fallback)
+                                    semantic_matches = [m for m in region_matches if len(m) > 2 and m[2] != 0.5]
+                                    if semantic_matches:
+                                        print(f"[INFO] Visual region pipeline matched {len(semantic_matches)} semantic matches out of {len(region_matches)} total")
+                                        use_visual_regions = True
+                                    else:
+                                        print(f"[INFO] Visual region pipeline only found fallback matches (no semantic matches), using standard image extraction")
+                                        use_visual_regions = False
+                                        region_matches = []
                                 else:
                                     print(f"[INFO] Visual region pipeline found no matches, using standard image extraction")
                                     use_visual_regions = False

@@ -621,27 +621,24 @@ class VisualRegionPipeline:
             
             print(f"[INFO] Detected {len(regions)} visual regions")
             
-            # AGGRESSIVE: Early exit if too many regions to prevent ANY memory issues
-            # Use a very conservative limit
-            MAX_SAFE_REGIONS = 15  # Reduced from 30 to 15 for maximum safety
+            # Limit regions if too many to prevent memory issues, but still try semantic matching
+            MAX_SAFE_REGIONS = 20  # Increased to 20 to allow more semantic matches
             if len(regions) > MAX_SAFE_REGIONS:
-                print(f"[WARNING] Too many regions ({len(regions)}) detected. Maximum safe limit is {MAX_SAFE_REGIONS}.")
-                print("[INFO] Limiting to top regions and using fallback matching to prevent memory issues")
+                print(f"[WARNING] Too many regions ({len(regions)}) detected. Limiting to top {MAX_SAFE_REGIONS} for memory safety.")
                 regions = regions[:MAX_SAFE_REGIONS]
-                # Use fallback matching directly - no semantic matching at all
+            
+            # Try semantic matching on the (possibly limited) regions
+            # Match regions to questions with comprehensive error handling
+            try:
+                matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.3)
+            except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
+                print(f"[WARNING] Memory/runtime error during matching: {type(mem_err).__name__}: {str(mem_err)}")
+                print("[INFO] Using fallback matching instead")
                 matches = self.matcher._fallback_match(regions, questions)
-            else:
-                # Match regions to questions with comprehensive error handling
-                try:
-                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.3)
-                except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
-                    print(f"[WARNING] Memory/runtime error during matching: {type(mem_err).__name__}: {str(mem_err)}")
-                    print("[INFO] Using fallback matching instead")
-                    matches = self.matcher._fallback_match(regions, questions)
-                except Exception as match_err:
-                    print(f"[WARNING] Error during semantic matching: {type(match_err).__name__}: {str(match_err)}")
-                    print("[INFO] Using fallback matching instead")
-                    matches = self.matcher._fallback_match(regions, questions)
+            except Exception as match_err:
+                print(f"[WARNING] Error during semantic matching: {type(match_err).__name__}: {str(match_err)}")
+                print("[INFO] Using fallback matching instead")
+                matches = self.matcher._fallback_match(regions, questions)
             
             if not matches:
                 print("[WARNING] No matches found between questions and regions")
