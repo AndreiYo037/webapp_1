@@ -1,34 +1,39 @@
 #!/bin/bash
-# Don't use set -e here - we want to handle errors gracefully
-set -o pipefail
+set -e  # Exit on error - we want to fail loudly if PORT isn't set
 
-# Debug: Print environment variables (force output to stderr so it shows in logs)
-echo "[DEBUG] PORT environment variable: ${PORT:-not set, using 8000}" >&2
-echo "[DEBUG] All environment variables:" >&2
-env | grep -E "(PORT|DJANGO|PYTHON)" | head -20 >&2 || true
+# Force output to stdout/stderr (don't buffer)
+exec > >(tee -a /proc/1/fd/1) 2>&1
 
-echo "[INFO] Running database migrations..." >&2
-python manage.py migrate --noinput || {
-    echo "[WARNING] Migrations failed, continuing anyway..." >&2
-}
+echo "=========================================="
+echo "[STARTUP] Flashcard App Starting"
+echo "=========================================="
 
-# Railway sets PORT dynamically - we MUST use it
-# If PORT is not set, something is wrong, but we'll default to 8000 for safety
-LISTEN_PORT=${PORT:-8000}
+# Debug: Print environment variables
+echo "[DEBUG] PORT environment variable: ${PORT:-NOT SET - THIS WILL CAUSE 502 ERRORS}"
+echo "[DEBUG] Checking environment..."
+env | grep -E "^PORT=" || echo "[ERROR] PORT environment variable is NOT SET!"
 
-# Critical: Railway requires binding to $PORT
+# CRITICAL: Railway REQUIRES PORT to be set
 if [ -z "$PORT" ]; then
-    echo "[WARNING] PORT environment variable not set! Railway may not route traffic correctly." >&2
-    echo "[WARNING] Defaulting to port 8000, but this may cause 502 errors." >&2
-else
-    echo "[INFO] Using Railway PORT=${PORT}" >&2
+    echo "[FATAL ERROR] PORT environment variable is not set!"
+    echo "[FATAL ERROR] Railway requires your app to listen on \$PORT"
+    echo "[FATAL ERROR] This will cause 502 Bad Gateway errors"
+    echo "[FATAL ERROR] Exiting..."
+    exit 1
 fi
 
-echo "[INFO] Starting gunicorn server on 0.0.0.0:${LISTEN_PORT}..." >&2
+echo "[SUCCESS] PORT is set to: ${PORT}"
+echo "[INFO] Running database migrations..."
+python manage.py migrate --noinput || {
+    echo "[WARNING] Migrations failed, continuing anyway..."
+}
 
-# Start gunicorn - Railway will route traffic to this port
+echo "[INFO] Starting gunicorn server on 0.0.0.0:${PORT}..."
+echo "=========================================="
+
+# Start gunicorn - MUST use $PORT (no default, fail if not set)
 exec gunicorn flashcard_app.wsgi:application \
-    --bind 0.0.0.0:${LISTEN_PORT} \
+    --bind 0.0.0.0:${PORT} \
     --workers 2 \
     --timeout 120 \
     --keep-alive 5 \
