@@ -46,8 +46,8 @@ class VisualRegionDetector:
     """Detects visual regions in PDF/Word documents"""
     
     def __init__(self):
-        self.min_region_area = 5000  # Minimum area in pixels for a valid region
-        self.aspect_ratio_range = (0.3, 3.0)  # Valid aspect ratios
+        self.min_region_area = 3000  # Lowered from 5000 to detect smaller visual regions
+        self.aspect_ratio_range = (0.2, 5.0)  # More permissive aspect ratios to catch more regions
     
     def detect_regions_in_pdf(self, file_path: str) -> List[VisualRegion]:
         """Detect visual regions in a PDF document"""
@@ -57,6 +57,7 @@ class VisualRegionDetector:
             
             doc = fitz.open(file_path)
             
+            print(f"[INFO] Processing {len(doc)} pages for visual region detection...")
             for page_num in range(len(doc)):
                 page = doc[page_num]
                 
@@ -68,6 +69,7 @@ class VisualRegionDetector:
                 # Detect regions on this page
                 page_regions = self._detect_regions_on_page(page, page_image, page_num)
                 regions.extend(page_regions)
+                print(f"[INFO] Page {page_num + 1}/{len(doc)}: Found {len(page_regions)} visual regions (total: {len(regions)})")
             
             doc.close()
             return regions
@@ -428,9 +430,8 @@ class SemanticMatcher:
             return self._fallback_match(regions, questions)
         
         try:
-            # AGGRESSIVE: Limit regions to prevent memory issues
-            # Railway has limited memory, so we need to be very conservative
-            MAX_REGIONS = 20  # Reduced from 50 to 20 to prevent OOM
+            # Limit regions to prevent memory issues, but allow more for better coverage
+            MAX_REGIONS = 50  # Increased from 20 to 50 to process more regions
             if len(regions) > MAX_REGIONS:
                 print(f"[WARNING] Too many regions ({len(regions)}), limiting to top {MAX_REGIONS} for memory safety")
                 regions = regions[:MAX_REGIONS]
@@ -621,8 +622,8 @@ class VisualRegionPipeline:
             
             print(f"[INFO] Detected {len(regions)} visual regions")
             
-            # Limit regions if too many to prevent memory issues, but still try semantic matching
-            MAX_SAFE_REGIONS = 20  # Increased to 20 to allow more semantic matches
+            # Limit regions if too many to prevent memory issues, but allow more for better coverage
+            MAX_SAFE_REGIONS = 50  # Increased from 20 to 50 to process more regions from all pages
             if len(regions) > MAX_SAFE_REGIONS:
                 print(f"[WARNING] Too many regions ({len(regions)}) detected. Limiting to top {MAX_SAFE_REGIONS} for memory safety.")
                 regions = regions[:MAX_SAFE_REGIONS]
