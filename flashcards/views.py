@@ -268,6 +268,41 @@ def upload_file(request):
                     else:
                         match_dict = {}
                     
+                    # Helper function to check if image is blank/white
+                    def is_image_blank(image_file):
+                        """Check if an image is mostly blank/white"""
+                        try:
+                            from PIL import Image
+                            import numpy as np
+                            
+                            # Open and check the image
+                            img = Image.open(image_file.file)
+                            if img.mode != 'RGB':
+                                img = img.convert('RGB')
+                            
+                            # Convert to numpy array
+                            img_array = np.array(img)
+                            
+                            # Check if image is mostly white (>95% white pixels)
+                            # White pixels are those with RGB values all > 240
+                            white_pixels = np.sum(np.all(img_array > 240, axis=2))
+                            total_pixels = img_array.shape[0] * img_array.shape[1]
+                            white_ratio = white_pixels / total_pixels if total_pixels > 0 else 0
+                            
+                            # Also check if image has very low variance (uniform color)
+                            variance = np.var(img_array)
+                            
+                            # Image is blank if >95% white OR very low variance (<100)
+                            is_blank = white_ratio > 0.95 or variance < 100
+                            
+                            if is_blank:
+                                print(f"[WARNING] Image {image_file.filename} appears to be blank (white_ratio: {white_ratio:.2f}, variance: {variance:.1f})")
+                            
+                            return is_blank
+                        except Exception as e:
+                            print(f"[WARNING] Could not check if image is blank: {str(e)}")
+                            return False  # Assume not blank if we can't check
+                    
                     # Create flashcards with matched images
                     for idx, card_data in enumerate(flashcards_data):
                         # Determine which image to use for this flashcard
@@ -275,15 +310,31 @@ def upload_file(request):
                         if match_dict and idx in match_dict:
                             img_idx = match_dict[idx]
                             if img_idx < len(extracted_image_files):
-                                matched_image = extracted_image_files[img_idx]
-                                print(f"[INFO] Flashcard {idx+1} assigned to image {img_idx+1} ({extracted_image_files[img_idx].filename})")
+                                candidate_image = extracted_image_files[img_idx]
+                                # Check if image is blank, if so try next images
+                                if not is_image_blank(candidate_image):
+                                    matched_image = candidate_image
+                                    print(f"[INFO] Flashcard {idx+1} assigned to image {img_idx+1} ({candidate_image.filename})")
+                                else:
+                                    # Try to find a non-blank image
+                                    print(f"[WARNING] Assigned image {img_idx+1} is blank, searching for alternative...")
+                                    for alt_idx in range(len(extracted_image_files)):
+                                        alt_image = extracted_image_files[(img_idx + alt_idx + 1) % len(extracted_image_files)]
+                                        if not is_image_blank(alt_image):
+                                            matched_image = alt_image
+                                            print(f"[INFO] Flashcard {idx+1} using alternative image {extracted_image_files.index(alt_image)+1} ({alt_image.filename})")
+                                            break
                         
                         # Fallback: distribute in round-robin if no match
                         if not matched_image and extracted_image_files:
-                            # Use round-robin distribution instead of always using first image
-                            img_idx = idx % len(extracted_image_files)
-                            matched_image = extracted_image_files[img_idx]
-                            print(f"[INFO] Flashcard {idx+1} fallback: using image {img_idx+1} ({matched_image.filename})")
+                            # Use round-robin distribution, but skip blank images
+                            for offset in range(len(extracted_image_files)):
+                                img_idx = (idx + offset) % len(extracted_image_files)
+                                candidate_image = extracted_image_files[img_idx]
+                                if not is_image_blank(candidate_image):
+                                    matched_image = candidate_image
+                                    print(f"[INFO] Flashcard {idx+1} fallback: using image {img_idx+1} ({candidate_image.filename})")
+                                    break
                         
                         # Create flashcard
                         Flashcard.objects.create(
