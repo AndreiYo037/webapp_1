@@ -1,28 +1,22 @@
 #!/bin/bash
-set -e  # Exit on error - we want to fail loudly if PORT isn't set
-
-# Force output to stdout/stderr (don't buffer)
-exec > >(tee -a /proc/1/fd/1) 2>&1
+set -e  # Exit on error
 
 echo "=========================================="
 echo "[STARTUP] Flashcard App Starting"
 echo "=========================================="
 
-# Debug: Print environment variables
-echo "[DEBUG] PORT environment variable: ${PORT:-NOT SET - THIS WILL CAUSE 502 ERRORS}"
-echo "[DEBUG] Checking environment..."
-env | grep -E "^PORT=" || echo "[ERROR] PORT environment variable is NOT SET!"
-
-# CRITICAL: Railway REQUIRES PORT to be set
+# Debug: Print PORT environment variable
+echo "[DEBUG] PORT environment variable: ${PORT:-NOT SET}"
 if [ -z "$PORT" ]; then
-    echo "[FATAL ERROR] PORT environment variable is not set!"
-    echo "[FATAL ERROR] Railway requires your app to listen on \$PORT"
-    echo "[FATAL ERROR] This will cause 502 Bad Gateway errors"
-    echo "[FATAL ERROR] Exiting..."
-    exit 1
+    echo "[ERROR] PORT environment variable is NOT SET!"
+    echo "[ERROR] Railway requires your app to listen on \$PORT"
+    echo "[ERROR] This will cause 502 Bad Gateway errors"
+    echo "[ERROR] Attempting to use port 8000 as fallback..."
+    export PORT=8000
+else
+    echo "[SUCCESS] PORT is set to: ${PORT}"
 fi
 
-echo "[SUCCESS] PORT is set to: ${PORT}"
 echo "[INFO] Running database migrations..."
 python manage.py migrate --noinput || {
     echo "[WARNING] Migrations failed, continuing anyway..."
