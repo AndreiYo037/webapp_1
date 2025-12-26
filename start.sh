@@ -27,6 +27,17 @@ python manage.py migrate --noinput || {
     echo "[WARNING] Migrations failed, continuing anyway..."
 }
 
+# Set up Google OAuth if credentials are provided via environment variables
+if [ -n "$GOOGLE_OAUTH_CLIENT_ID" ] && [ -n "$GOOGLE_OAUTH_CLIENT_SECRET" ]; then
+    echo "[INFO] Google OAuth credentials found, setting up SocialApplication..."
+    python manage.py setup_google_oauth || {
+        echo "[WARNING] Failed to set up Google OAuth automatically. You can set it up manually via Django Admin."
+    }
+else
+    echo "[INFO] Google OAuth credentials not found. Set up manually via Django Admin at /admin/socialaccount/socialapp/"
+    echo "[INFO] See GOOGLE_OAUTH_SETUP.md for detailed instructions."
+fi
+
 echo "[INFO] Starting gunicorn server..."
 echo "[INFO] Binding to: 0.0.0.0:${PORT}"
 echo "=========================================="
