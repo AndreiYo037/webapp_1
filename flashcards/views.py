@@ -171,8 +171,8 @@ def upload_file(request):
                             
                             # Save cropped region if found and confidence is high enough
                             # Skip fallback matches (confidence == 0.5) - don't display irrelevant images
-                            # Lowered threshold to 0.15 (15%) to allow more images to be displayed
-                            if matched_region and matched_region.image and confidence >= 0.15 and confidence != 0.5:
+                            # Lowered threshold to 0.10 (10%) to allow more images to be displayed
+                            if matched_region and matched_region.image and confidence >= 0.10 and confidence != 0.5:
                                 try:
                                     # Check if image is blank/white before saving
                                     import numpy as np
