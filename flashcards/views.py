@@ -163,7 +163,8 @@ def upload_file(request):
                                     break
                             
                             # Save cropped region if found and confidence is high enough
-                            if matched_region and matched_region.image and confidence >= 0.3:
+                            # Skip fallback matches (confidence == 0.5) - don't display irrelevant images
+                            if matched_region and matched_region.image and confidence >= 0.3 and confidence != 0.5:
                                 try:
                                     # Save cropped region image
                                     img_buffer = io.BytesIO()
@@ -176,12 +177,15 @@ def upload_file(request):
                                         ContentFile(img_buffer.getvalue()),
                                         save=True
                                     )
-                                    print(f"[SUCCESS] Saved {matched_region.region_type} region for flashcard {idx+1} (confidence: {confidence:.2f})")
+                                    print(f"[SUCCESS] Saved {matched_region.region_type} region for flashcard {idx+1} (confidence: {confidence:.2f}, type: SEMANTIC)")
                                 except Exception as e:
                                     print(f"[WARNING] Failed to save region for flashcard {idx+1}: {str(e)}")
                             else:
                                 if matched_region:
-                                    print(f"[INFO] Skipped region for flashcard {idx+1} (low confidence: {confidence:.2f})")
+                                    if confidence == 0.5:
+                                        print(f"[INFO] Skipped fallback match for flashcard {idx+1} - no image displayed (fallback matches are not semantically relevant)")
+                                    else:
+                                        print(f"[INFO] Skipped region for flashcard {idx+1} (low confidence: {confidence:.2f})")
                         
                         # Skip the old image matching logic
                         word_count = len(text.split())
