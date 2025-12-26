@@ -600,27 +600,19 @@ class SemanticMatcher:
                     print(f"[DEBUG] Matched question {q_idx+1} to region {best_region_idx+1} (score: {best_score:.3f})")
             
             if not matches:
-                print(f"[WARNING] No matches found above threshold {min_confidence}, using fallback")
-                return self._fallback_match(regions, questions)
+                print(f"[WARNING] No matches found above threshold {min_confidence}")
+                print("[INFO] No images will be displayed - semantic matching failed")
+                return []
             
             print(f"[INFO] Found {len(matches)} semantic matches")
             return matches
             
         except Exception as e:
             print(f"[ERROR] Semantic matching failed: {str(e)}")
+            print("[INFO] No images will be displayed - semantic matching failed")
             import traceback
             traceback.print_exc()
-            return self._fallback_match(regions, questions)
-    
-    def _fallback_match(self, regions: List[VisualRegion], questions: List[str]) -> List[Tuple[int, int, float]]:
-        """Fallback matching when semantic matching fails - uses round-robin with region type hints"""
-        print("[INFO] Using fallback matching (round-robin distribution)")
-        matches = []
-        for q_idx in range(len(questions)):
-            r_idx = q_idx % len(regions)
-            # Use a default confidence score
-            matches.append((q_idx, r_idx, 0.5))
-        return matches
+            return []
     
     def _extract_text_from_region(self, region: VisualRegion) -> str:
         """Extract text from a visual region using OCR"""
