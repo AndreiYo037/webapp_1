@@ -615,8 +615,16 @@ class VisualRegionPipeline:
         
         print(f"[INFO] Detected {len(regions)} visual regions")
         
-        # Match regions to questions
-        matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.3)
+        # Early exit if too many regions to prevent memory issues
+        # The matcher will also limit, but we can skip the expensive operation entirely
+        if len(regions) > 30:
+            print(f"[WARNING] Too many regions ({len(regions)}) detected. Skipping semantic matching to prevent memory issues.")
+            print("[INFO] Using fallback matching instead")
+            # Use fallback matching directly
+            matches = self.matcher._fallback_match(regions, questions)
+        else:
+            # Match regions to questions
+            matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.3)
         
         if not matches:
             print("[WARNING] No semantic matches found between questions and regions")
