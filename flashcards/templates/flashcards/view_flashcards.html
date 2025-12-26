@@ -136,9 +136,22 @@ function handleImageError(img, url) {
 
 function handleImageLoad(img, url) {
     console.log('Image loaded successfully:', url);
+    console.log('Image dimensions:', img.naturalWidth, 'x', img.naturalHeight);
     img.style.display = 'block';
     img.style.visibility = 'visible';
     img.style.opacity = '1';
+    // Force minimum size
+    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+        const aspectRatio = img.naturalWidth / img.naturalHeight;
+        if (img.naturalWidth < 200) {
+            img.style.minWidth = '200px';
+            img.style.width = 'auto';
+        }
+        if (img.naturalHeight < 150) {
+            img.style.minHeight = '150px';
+            img.style.height = 'auto';
+        }
+    }
 }
 
 // Debug: Log image loading issues and ensure visibility
@@ -156,10 +169,32 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (img) {
             console.log(`  Image src: ${img.src}`);
-            // Ensure image is visible
+            // Ensure image is visible with proper sizing
             img.style.display = 'block';
             img.style.visibility = 'visible';
             img.style.opacity = '1';
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '280px';
+            img.style.minWidth = '200px';
+            img.style.minHeight = '150px';
+            img.style.width = 'auto';
+            img.style.height = 'auto';
+            img.style.objectFit = 'contain';
+            
+            // Check image dimensions once loaded
+            if (img.complete && img.naturalWidth > 0) {
+                console.log(`  Image dimensions: ${img.naturalWidth}x${img.naturalHeight}`);
+                if (img.naturalWidth < 200 || img.naturalHeight < 150) {
+                    console.warn(`  Image is very small (${img.naturalWidth}x${img.naturalHeight}), may not display well`);
+                }
+            } else {
+                img.onload = function() {
+                    console.log(`  Image loaded with dimensions: ${this.naturalWidth}x${this.naturalHeight}`);
+                    if (this.naturalWidth < 200 || this.naturalHeight < 150) {
+                        console.warn(`  Image is very small, may not display well`);
+                    }
+                };
+            }
             
             // Force reload if image seems broken
             if (!img.complete || img.naturalHeight === 0) {
@@ -293,11 +328,14 @@ document.addEventListener('DOMContentLoaded', function() {
     min-height: 150px;
     max-height: 280px;
     width: 100%;
+    position: relative;
 }
 
 .flashcard-image {
-    max-width: 100%;
-    max-height: 100%;
+    max-width: 100% !important;
+    max-height: 280px !important;
+    min-width: 200px !important;
+    min-height: 150px !important;
     width: auto;
     height: auto;
     object-fit: contain;
@@ -305,7 +343,9 @@ document.addEventListener('DOMContentLoaded', function() {
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     background: rgba(255, 255, 255, 0.95);
     padding: 8px;
-    display: block;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     margin: 0 auto;
 }
 
