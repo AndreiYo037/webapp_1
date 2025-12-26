@@ -481,9 +481,8 @@ class SemanticMatcher:
             return []
         
         if not self.model:
-            print("[WARNING] Embedding model not available, using fallback matching")
-            # Fallback: match based on region type and round-robin
-            return self._fallback_match(regions, questions)
+            print("[WARNING] Embedding model not available, no images will be displayed - semantic matching failed")
+            return []
         
         try:
             # Process all regions, but add safety check for extremely large numbers
@@ -517,20 +516,33 @@ class SemanticMatcher:
                 if question_embeddings is None:
                     raise Exception("Failed to generate question embeddings")
                 
-                # Process regions with optimized batch size to balance speed and memory
-                # Increased batch size to 16 for faster processing and to avoid timeouts
-                region_embeddings = self.generate_embeddings(region_texts, batch_size=16)
+                # Process regions with optimized batch size
+                # Adjust batch size based on number of regions to prevent memory issues
+                if len(region_texts) > 100:
+                    # For large numbers, use smaller batches to prevent memory issues
+                    region_batch_size = 8
+                else:
+                    # For smaller numbers, use larger batches for speed
+                    region_batch_size = 16
+                
+                print(f"[INFO] Processing {len(region_texts)} regions with batch size {region_batch_size}")
+                region_embeddings = self.generate_embeddings(region_texts, batch_size=region_batch_size)
                 if region_embeddings is None:
                     raise Exception("Failed to generate region embeddings")
                     
             except (MemoryError, RuntimeError, SystemExit, OSError) as e:
                 print(f"[ERROR] Memory or runtime error during embedding generation: {str(e)}")
-                print("[WARNING] Falling back to simple matching due to memory constraints")
-                return self._fallback_match(regions, questions)
+                print("[WARNING] Semantic matching failed due to memory/runtime constraints")
+                print("[INFO] No images will be displayed - semantic matching failed")
+                import traceback
+                traceback.print_exc()
+                return []
             except Exception as e:
                 print(f"[ERROR] Error during embedding generation: {str(e)}")
-                print("[WARNING] Falling back to simple matching")
-                return self._fallback_match(regions, questions)
+                print("[INFO] No images will be displayed - semantic matching failed")
+                import traceback
+                traceback.print_exc()
+                return []
             
             # Calculate cosine similarity
             if not SKLEARN_AVAILABLE:
@@ -711,13 +723,17 @@ class VisualRegionPipeline:
             try:
                     matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.10)
             except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
-                print(f"[WARNING] Memory/runtime error during matching: {type(mem_err).__name__}: {str(mem_err)}")
-                print("[INFO] Using fallback matching instead")
-                matches = self.matcher._fallback_match(regions, questions)
+                print(f"[ERROR] Memory/runtime error during matching: {type(mem_err).__name__}: {str(mem_err)}")
+                print("[INFO] No images will be displayed - semantic matching failed")
+                import traceback
+                traceback.print_exc()
+                matches = []
             except Exception as match_err:
-                print(f"[WARNING] Error during semantic matching: {type(match_err).__name__}: {str(match_err)}")
-                print("[INFO] Using fallback matching instead")
-                matches = self.matcher._fallback_match(regions, questions)
+                print(f"[ERROR] Error during semantic matching: {type(match_err).__name__}: {str(match_err)}")
+                print("[INFO] No images will be displayed - semantic matching failed")
+                import traceback
+                traceback.print_exc()
+                matches = []
             
             if not matches:
                 print("[WARNING] No matches found between questions and regions")
