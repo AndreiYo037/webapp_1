@@ -146,7 +146,7 @@ def match_images_to_flashcards(flashcards_data, image_files_list, text_content):
             return [(i, i % len(image_files_list)) for i in range(len(flashcards_data))]
         
         model = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
-        vision_model = getattr(settings, 'GROQ_VISION_MODEL', 'llava-3.2-11b-v1.1')
+        vision_model = getattr(settings, 'GROQ_VISION_MODEL', 'llava-3.1-70b-versatile')
         client = OpenAI(
             api_key=api_key,
             base_url='https://api.groq.com/openai/v1'
@@ -439,7 +439,7 @@ def auto_crop_image_for_question(image_path, question_text):
             print("[WARNING] Groq API key not found - auto-cropping unavailable")
             return None
         
-        vision_model = getattr(settings, 'GROQ_VISION_MODEL', 'llava-3.2-11b-v1.1')
+        vision_model = getattr(settings, 'GROQ_VISION_MODEL', 'llava-3.1-70b-versatile')
         model = getattr(settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile')
         
         client = OpenAI(
@@ -594,7 +594,7 @@ def understand_image_with_vision(file_path):
             return None
         
         # Groq vision model (supports image input)
-        vision_model = getattr(settings, 'GROQ_VISION_MODEL', 'llava-3.2-11b-v1.1')
+        vision_model = getattr(settings, 'GROQ_VISION_MODEL', 'llava-3.1-70b-versatile')
         print(f"[INFO] Using Groq Vision model: {vision_model} for image analysis")
         
         # Create Groq client (OpenAI-compatible API)

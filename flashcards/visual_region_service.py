@@ -471,7 +471,7 @@ class SemanticMatcher:
     
     def match_regions_to_questions(self, regions: List[VisualRegion], 
                                   questions: List[str],
-                                  min_confidence: float = 0.45) -> List[Tuple[int, int, float]]:
+                                  min_confidence: float = 0.25) -> List[Tuple[int, int, float]]:
         """
         Match visual regions to questions using semantic similarity
         Returns list of (question_index, region_index, similarity_score) tuples
