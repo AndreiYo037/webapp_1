@@ -353,35 +353,62 @@ class SemanticMatcher:
             return None
         
         try:
+            # Force garbage collection before processing
+            import gc
+            gc.collect()
+            
             # Process in batches to avoid memory issues
             if len(texts) > batch_size:
                 print(f"[INFO] Processing {len(texts)} texts in batches of {batch_size}...")
                 embeddings_list = []
                 for i in range(0, len(texts), batch_size):
                     batch = texts[i:i + batch_size]
-                    batch_embeddings = self.model.encode(
-                        batch, 
-                        convert_to_numpy=True, 
-                        show_progress_bar=False,
-                        batch_size=min(batch_size, len(batch))
-                    )
-                    embeddings_list.append(batch_embeddings)
-                    print(f"[INFO] Processed batch {i//batch_size + 1}/{(len(texts) + batch_size - 1)//batch_size}")
+                    try:
+                        batch_embeddings = self.model.encode(
+                            batch, 
+                            convert_to_numpy=True, 
+                            show_progress_bar=False,
+                            batch_size=min(batch_size, len(batch)),
+                            normalize_embeddings=True  # Normalize to reduce memory
+                        )
+                        embeddings_list.append(batch_embeddings)
+                        print(f"[INFO] Processed batch {i//batch_size + 1}/{(len(texts) + batch_size - 1)//batch_size}")
+                        
+                        # Force garbage collection after each batch
+                        del batch_embeddings
+                        gc.collect()
+                    except (MemoryError, RuntimeError) as e:
+                        print(f"[ERROR] Memory error in batch {i//batch_size + 1}: {str(e)}")
+                        # If we have some embeddings, return what we have
+                        if embeddings_list:
+                            print("[WARNING] Returning partial embeddings due to memory error")
+                            return np.vstack(embeddings_list)
+                        raise
                 
                 # Concatenate all batches
                 embeddings = np.vstack(embeddings_list)
+                del embeddings_list
+                gc.collect()
             else:
                 embeddings = self.model.encode(
                     texts, 
                     convert_to_numpy=True, 
                     show_progress_bar=False,
-                    batch_size=len(texts)
+                    batch_size=len(texts),
+                    normalize_embeddings=True
                 )
             return embeddings
+        except (MemoryError, RuntimeError, OSError) as e:
+            print(f"[ERROR] Failed to generate embeddings (memory/runtime error): {str(e)}")
+            import gc
+            gc.collect()
+            return None
         except Exception as e:
             print(f"[ERROR] Failed to generate embeddings: {str(e)}")
             import traceback
             traceback.print_exc()
+            import gc
+            gc.collect()
             return None
     
     def match_regions_to_questions(self, regions: List[VisualRegion], 
@@ -401,11 +428,17 @@ class SemanticMatcher:
             return self._fallback_match(regions, questions)
         
         try:
-            # Limit regions if too many to avoid memory/timeout issues
-            MAX_REGIONS = 50  # Limit to top 50 regions to avoid timeout
+            # AGGRESSIVE: Limit regions to prevent memory issues
+            # Railway has limited memory, so we need to be very conservative
+            MAX_REGIONS = 20  # Reduced from 50 to 20 to prevent OOM
             if len(regions) > MAX_REGIONS:
-                print(f"[WARNING] Too many regions ({len(regions)}), limiting to top {MAX_REGIONS} for performance")
+                print(f"[WARNING] Too many regions ({len(regions)}), limiting to top {MAX_REGIONS} for memory safety")
                 regions = regions[:MAX_REGIONS]
+            
+            # If still too many regions after limiting, use fallback immediately
+            if len(regions) > 30:
+                print(f"[WARNING] Too many regions ({len(regions)}) even after limiting, using fallback matching")
+                return self._fallback_match(regions, questions)
             
             # Extract text descriptions from regions using OCR
             print(f"[INFO] Extracting text from {len(regions)} regions...")
@@ -416,17 +449,21 @@ class SemanticMatcher:
                 if idx < 3:  # Log first few for debugging
                     print(f"[DEBUG] Region {idx+1} text (first 100 chars): {text[:100]}")
             
-            # Generate embeddings with error handling
+            # Generate embeddings with very small batches and aggressive error handling
             print(f"[INFO] Generating embeddings for {len(questions)} questions and {len(region_texts)} regions...")
             try:
-                question_embeddings = self.generate_embeddings(questions, batch_size=16)
+                # Process questions first (usually small number)
+                question_embeddings = self.generate_embeddings(questions, batch_size=8)
                 if question_embeddings is None:
                     raise Exception("Failed to generate question embeddings")
                 
-                region_embeddings = self.generate_embeddings(region_texts, batch_size=16)
+                # Process regions with very small batches to avoid memory issues
+                # Use batch size of 4 for regions to minimize memory footprint
+                region_embeddings = self.generate_embeddings(region_texts, batch_size=4)
                 if region_embeddings is None:
                     raise Exception("Failed to generate region embeddings")
-            except (MemoryError, RuntimeError, SystemExit) as e:
+                    
+            except (MemoryError, RuntimeError, SystemExit, OSError) as e:
                 print(f"[ERROR] Memory or runtime error during embedding generation: {str(e)}")
                 print("[WARNING] Falling back to simple matching due to memory constraints")
                 return self._fallback_match(regions, questions)

@@ -99,14 +99,20 @@ def upload_file(request):
                             questions = [card['question'] for card in flashcards_data]
                             
                             # Process document with visual region pipeline
+                            # Wrap in try-except to catch memory errors and fallback gracefully
                             pipeline = VisualRegionPipeline()
-                            region_matches = pipeline.process_document(file_path, file_type, questions)
-                            
-                            if region_matches and len(region_matches) > 0:
-                                print(f"[INFO] Visual region pipeline matched {len(region_matches)} regions to questions")
-                                use_visual_regions = True
-                            else:
-                                print(f"[INFO] Visual region pipeline found no matches, using standard image extraction")
+                            try:
+                                region_matches = pipeline.process_document(file_path, file_type, questions)
+                                
+                                if region_matches and len(region_matches) > 0:
+                                    print(f"[INFO] Visual region pipeline matched {len(region_matches)} regions to questions")
+                                    use_visual_regions = True
+                                else:
+                                    print(f"[INFO] Visual region pipeline found no matches, using standard image extraction")
+                                    use_visual_regions = False
+                            except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
+                                print(f"[WARNING] Memory/runtime error in visual region pipeline: {str(mem_err)}")
+                                print("[INFO] Falling back to standard image extraction due to memory constraints")
                                 use_visual_regions = False
                             
                         except Exception as e:
