@@ -158,8 +158,10 @@ class VisualRegionDetector:
                 # Apply threshold
                 _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
                 
-                # Find contours
-                contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                # Find contours - use RETR_TREE to avoid picking up entire page as one contour
+                contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+                
+                page_area = gray.shape[1] * gray.shape[0]  # width * height
                 
                 for contour in contours:
                     x, y, w, h = cv2.boundingRect(contour)
@@ -167,6 +169,12 @@ class VisualRegionDetector:
                     
                     # Filter by size
                     if area < self.min_region_area:
+                        continue
+                    
+                    # CRITICAL: Reject contours that are too large (likely entire page)
+                    region_ratio = area / page_area if page_area > 0 else 0
+                    if region_ratio > 0.80:
+                        print(f"[DEBUG] Rejected contour covering {region_ratio*100:.1f}% of page")
                         continue
                     
                     # Check aspect ratio
@@ -257,18 +265,28 @@ class VisualRegionDetector:
             # Combine
             table_mask = cv2.addWeighted(horizontal_lines, 0.5, vertical_lines, 0.5, 0.0)
             
-            # Find contours of table regions
-            contours, _ = cv2.findContours(table_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # Find contours of table regions - use RETR_TREE to avoid picking up entire page
+            contours, _ = cv2.findContours(table_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            
+            page_area = gray.shape[1] * gray.shape[0]  # width * height
             
             for contour in contours:
                 x, y, w, h = cv2.boundingRect(contour)
                 area = w * h
                 
-                if area > self.min_region_area:  # Lowered threshold to detect more table/graph regions
-                    bbox = (x, y, x + w, y + h)
-                    region = self._create_region_from_bbox(bbox, page_image, page_num, "table")
-                    if region:
-                        regions.append(region)
+                if area < self.min_region_area:
+                    continue
+                
+                # CRITICAL: Reject contours that are too large (likely entire page)
+                region_ratio = area / page_area if page_area > 0 else 0
+                if region_ratio > 0.80:
+                    print(f"[DEBUG] Rejected table contour covering {region_ratio*100:.1f}% of page")
+                    continue
+                
+                bbox = (x, y, x + w, y + h)
+                region = self._create_region_from_bbox(bbox, page_image, page_num, "table")
+                if region:
+                    regions.append(region)
             
             return regions
             
@@ -298,6 +316,24 @@ class VisualRegionDetector:
             height = y1 - y0
         
         if width <= 0 or height <= 0:
+            return None
+        
+        # CRITICAL: Reject regions that are too large (likely entire page)
+        # Reject if region covers more than 80% of page area
+        page_area = page_image.width * page_image.height
+        region_area = width * height
+        region_ratio = region_area / page_area if page_area > 0 else 0
+        
+        if region_ratio > 0.80:
+            print(f"[DEBUG] Rejected region covering {region_ratio*100:.1f}% of page (too large, likely entire page)")
+            return None
+        
+        # Also reject if region is very close to page dimensions (within 5% margin)
+        width_ratio = width / page_image.width if page_image.width > 0 else 0
+        height_ratio = height / page_image.height if page_image.height > 0 else 0
+        
+        if width_ratio > 0.95 and height_ratio > 0.95:
+            print(f"[DEBUG] Rejected region with dimensions {width}x{height} (too close to page size {page_image.width}x{page_image.height})")
             return None
         
         # Crop the region
