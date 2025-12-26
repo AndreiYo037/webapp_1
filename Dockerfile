@@ -57,6 +57,10 @@ RUN python manage.py collectstatic --noinput || true
 # Expose port
 EXPOSE 8000
 
-# Run gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "flashcard_app.wsgi:application"]
+# Create startup script to run migrations before starting server
+RUN echo '#!/bin/bash\nset -e\npython manage.py migrate --noinput\nexec gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 120 flashcard_app.wsgi:application' > /app/start.sh && \
+    chmod +x /app/start.sh
+
+# Run startup script (which runs migrations then starts gunicorn)
+CMD ["/app/start.sh"]
 
