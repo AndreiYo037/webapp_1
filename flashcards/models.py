@@ -23,6 +23,7 @@ class UploadedFile(models.Model):
 class FlashcardSet(models.Model):
     """Model to store a set of flashcards generated from a file"""
     file = models.ForeignKey(UploadedFile, on_delete=models.CASCADE, related_name='flashcard_sets')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='flashcard_sets')
     title = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     

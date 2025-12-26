@@ -16,8 +16,13 @@ from django.db import connection
 
 def index(request):
     """Home page with file upload"""
-    recent_files = UploadedFile.objects.all()[:5]
-    recent_sets = FlashcardSet.objects.all()[:5]
+    # Show user's files and sets if logged in, otherwise show all
+    if request.user.is_authenticated:
+        recent_files = UploadedFile.objects.filter(user=request.user)[:5]
+        recent_sets = FlashcardSet.objects.filter(user=request.user)[:5]
+    else:
+        recent_files = UploadedFile.objects.filter(user__isnull=True)[:5]
+        recent_sets = FlashcardSet.objects.filter(user__isnull=True)[:5]
     
     # Debug: Show LLM configuration (only in DEBUG mode)
     debug_info = {}
@@ -81,7 +86,8 @@ def upload_file(request):
                     # Create flashcard set
                     flashcard_set = FlashcardSet.objects.create(
                         file=file_obj,
-                        title=f"Flashcards from {file_obj.filename}"
+                        title=f"Flashcards from {file_obj.filename}",
+                        user=request.user if request.user.is_authenticated else None
                     )
                     
                     # Use visual region pipeline for intelligent cropping (PDF/Word only)
@@ -421,7 +427,11 @@ def view_file(request, file_id):
 
 def view_flashcards(request, set_id):
     """View flashcards in a set"""
-    flashcard_set = get_object_or_404(FlashcardSet, id=set_id)
+    # Only allow access to user's own sets or public sets (no user)
+    if request.user.is_authenticated:
+        flashcard_set = get_object_or_404(FlashcardSet, id=set_id, user=request.user)
+    else:
+        flashcard_set = get_object_or_404(FlashcardSet, id=set_id, user__isnull=True)
     flashcards = flashcard_set.flashcards.all()
     
     # Check if the source file is an image (for backwards compatibility with old flashcards)
@@ -451,7 +461,11 @@ def view_flashcards(request, set_id):
 
 def list_files(request):
     """List all uploaded files"""
-    files = UploadedFile.objects.all().order_by('-uploaded_at')
+    # Show user's files if logged in, otherwise show public files
+    if request.user.is_authenticated:
+        files = UploadedFile.objects.filter(user=request.user).order_by('-uploaded_at')
+    else:
+        files = UploadedFile.objects.filter(user__isnull=True).order_by('-uploaded_at')
     return render(request, 'flashcards/list_files.html', {
         'files': files
     })
@@ -459,7 +473,11 @@ def list_files(request):
 
 def list_flashcard_sets(request):
     """List all flashcard sets"""
-    sets = FlashcardSet.objects.all().order_by('-created_at')
+    # Show user's sets if logged in, otherwise show public sets
+    if request.user.is_authenticated:
+        sets = FlashcardSet.objects.filter(user=request.user).order_by('-created_at')
+    else:
+        sets = FlashcardSet.objects.filter(user__isnull=True).order_by('-created_at')
     return render(request, 'flashcards/list_sets.html', {
         'flashcard_sets': sets
     })
