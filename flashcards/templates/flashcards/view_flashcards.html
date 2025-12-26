@@ -25,7 +25,9 @@
                                 <img src="{{ flashcard.cropped_image.url }}" 
                                      alt="Auto-cropped diagram for question" 
                                      class="flashcard-image"
-                                     onerror="this.style.display='none'; console.error('Failed to load cropped image');">
+                                     loading="lazy"
+                                     onerror="this.style.display='none'; console.error('Failed to load cropped image:', this.src);"
+                                     onload="console.log('Image loaded successfully:', this.src);">
                             </div>
                         {% elif flashcard.source_image %}
                             {% if flashcard.source_image.file %}
@@ -108,16 +110,45 @@ function flipCard(id) {
     }
 }
 
-// Debug: Log image loading issues
+// Debug: Log image loading issues and ensure visibility
 document.addEventListener('DOMContentLoaded', function() {
     const images = document.querySelectorAll('.flashcard-image');
+    console.log(`Found ${images.length} flashcard images to load`);
+    
     images.forEach((img, index) => {
+        // Ensure image is visible
+        img.style.display = 'block';
+        img.style.visibility = 'visible';
+        img.style.opacity = '1';
+        
         img.addEventListener('error', function() {
-            console.error('Image failed to load:', this.src);
+            console.error(`Image ${index + 1} failed to load:`, this.src);
+            // Show a placeholder or error message
+            const container = this.closest('.flashcard-image-container');
+            if (container) {
+                container.innerHTML = '<p style="color: rgba(255,255,255,0.7); font-size: 0.9em;">Image not available</p>';
+            }
         });
+        
         img.addEventListener('load', function() {
-            console.log('Image loaded successfully:', this.src);
+            console.log(`Image ${index + 1} loaded successfully:`, this.src);
+            this.style.display = 'block';
+            this.style.visibility = 'visible';
         });
+    });
+    
+    // Ensure flip buttons are visible
+    const flipButtons = document.querySelectorAll('.flip-button');
+    console.log(`Found ${flipButtons.length} flip buttons`);
+    flipButtons.forEach((btn, index) => {
+        btn.style.display = 'block';
+        btn.style.visibility = 'visible';
+        btn.style.opacity = '1';
+        const text = btn.querySelector('.flip-button-text');
+        if (text) {
+            text.style.color = '#667eea';
+            text.style.display = 'block';
+        }
     });
 });
 </script>
@@ -209,9 +240,10 @@ document.addEventListener('DOMContentLoaded', function() {
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
-    min-height: 100px;
-    max-height: 250px;
+    overflow: visible;
+    min-height: 150px;
+    max-height: 280px;
+    width: 100%;
 }
 
 .flashcard-image {
@@ -221,9 +253,11 @@ document.addEventListener('DOMContentLoaded', function() {
     height: auto;
     object-fit: contain;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    background: rgba(255, 255, 255, 0.1);
-    padding: 5px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    background: rgba(255, 255, 255, 0.95);
+    padding: 8px;
+    display: block;
+    margin: 0 auto;
 }
 
 .flashcard-image-back {
@@ -237,24 +271,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .flip-button {
     position: relative;
-    z-index: 10;
+    z-index: 100;
     margin-top: 15px;
     width: 100%;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.9) !important;
     border: 2px solid white;
-    color: white;
+    color: #667eea !important;
     padding: 12px 20px;
     font-size: 1em;
     font-weight: bold;
     cursor: pointer;
     border-radius: 8px;
     transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.flip-button-text {
+    color: #667eea !important;
+    font-weight: bold;
+    text-shadow: none;
 }
 
 .flip-button:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 1) !important;
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    color: #764ba2 !important;
+}
+
+.flip-button:hover .flip-button-text {
+    color: #764ba2 !important;
 }
 
 .flip-button:active {
