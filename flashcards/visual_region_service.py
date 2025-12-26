@@ -347,16 +347,41 @@ class SemanticMatcher:
             print("[INFO] Falling back to round-robin matching.")
             self.model = None
     
-    def generate_embeddings(self, texts: List[str]) -> Optional[np.ndarray]:
-        """Generate embeddings for a list of texts"""
+    def generate_embeddings(self, texts: List[str], batch_size: int = 32) -> Optional[np.ndarray]:
+        """Generate embeddings for a list of texts in batches to reduce memory usage"""
         if not self.model:
             return None
         
         try:
-            embeddings = self.model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+            # Process in batches to avoid memory issues
+            if len(texts) > batch_size:
+                print(f"[INFO] Processing {len(texts)} texts in batches of {batch_size}...")
+                embeddings_list = []
+                for i in range(0, len(texts), batch_size):
+                    batch = texts[i:i + batch_size]
+                    batch_embeddings = self.model.encode(
+                        batch, 
+                        convert_to_numpy=True, 
+                        show_progress_bar=False,
+                        batch_size=min(batch_size, len(batch))
+                    )
+                    embeddings_list.append(batch_embeddings)
+                    print(f"[INFO] Processed batch {i//batch_size + 1}/{(len(texts) + batch_size - 1)//batch_size}")
+                
+                # Concatenate all batches
+                embeddings = np.vstack(embeddings_list)
+            else:
+                embeddings = self.model.encode(
+                    texts, 
+                    convert_to_numpy=True, 
+                    show_progress_bar=False,
+                    batch_size=len(texts)
+                )
             return embeddings
         except Exception as e:
             print(f"[ERROR] Failed to generate embeddings: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def match_regions_to_questions(self, regions: List[VisualRegion], 
@@ -376,6 +401,12 @@ class SemanticMatcher:
             return self._fallback_match(regions, questions)
         
         try:
+            # Limit regions if too many to avoid memory/timeout issues
+            MAX_REGIONS = 50  # Limit to top 50 regions to avoid timeout
+            if len(regions) > MAX_REGIONS:
+                print(f"[WARNING] Too many regions ({len(regions)}), limiting to top {MAX_REGIONS} for performance")
+                regions = regions[:MAX_REGIONS]
+            
             # Extract text descriptions from regions using OCR
             print(f"[INFO] Extracting text from {len(regions)} regions...")
             region_texts = []
@@ -385,13 +416,23 @@ class SemanticMatcher:
                 if idx < 3:  # Log first few for debugging
                     print(f"[DEBUG] Region {idx+1} text (first 100 chars): {text[:100]}")
             
-            # Generate embeddings
+            # Generate embeddings with error handling
             print(f"[INFO] Generating embeddings for {len(questions)} questions and {len(region_texts)} regions...")
-            question_embeddings = self.generate_embeddings(questions)
-            region_embeddings = self.generate_embeddings(region_texts)
-            
-            if question_embeddings is None or region_embeddings is None:
-                print("[WARNING] Failed to generate embeddings, using fallback matching")
+            try:
+                question_embeddings = self.generate_embeddings(questions, batch_size=16)
+                if question_embeddings is None:
+                    raise Exception("Failed to generate question embeddings")
+                
+                region_embeddings = self.generate_embeddings(region_texts, batch_size=16)
+                if region_embeddings is None:
+                    raise Exception("Failed to generate region embeddings")
+            except (MemoryError, RuntimeError, SystemExit) as e:
+                print(f"[ERROR] Memory or runtime error during embedding generation: {str(e)}")
+                print("[WARNING] Falling back to simple matching due to memory constraints")
+                return self._fallback_match(regions, questions)
+            except Exception as e:
+                print(f"[ERROR] Error during embedding generation: {str(e)}")
+                print("[WARNING] Falling back to simple matching")
                 return self._fallback_match(regions, questions)
             
             # Calculate cosine similarity
