@@ -264,7 +264,7 @@ class VisualRegionDetector:
                 x, y, w, h = cv2.boundingRect(contour)
                 area = w * h
                 
-                if area > self.min_region_area * 2:  # Tables are usually larger
+                if area > self.min_region_area:  # Lowered threshold to detect more table/graph regions
                     bbox = (x, y, x + w, y + h)
                     region = self._create_region_from_bbox(bbox, page_image, page_num, "table")
                     if region:
