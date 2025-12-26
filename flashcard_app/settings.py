@@ -259,6 +259,24 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
 # Google OAuth Settings
+# IMPORTANT: django-allauth requires credentials to be stored in the database
+# You have two options:
+#
+# Option 1: Use Django Admin (Recommended for first-time setup)
+#   1. Go to /admin/socialaccount/socialapp/
+#   2. Click "Add Social Application"
+#   3. Fill in:
+#      - Provider: google
+#      - Name: Google
+#      - Client id: (from Google Cloud Console)
+#      - Secret key: (from Google Cloud Console)
+#   4. Under "Sites", select your site (e.g., your-app.railway.app)
+#   5. Save
+#
+# Option 2: Use Management Command (After setting env vars)
+#   Run: python manage.py setup_google_oauth
+#   (Requires GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET env vars)
+#
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': [
@@ -268,11 +286,6 @@ SOCIALACCOUNT_PROVIDERS = {
         'AUTH_PARAMS': {
             'access_type': 'online',
         },
-        'APP': {
-            'client_id': os.getenv('GOOGLE_OAUTH_CLIENT_ID', ''),
-            'secret': os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', ''),
-            'key': ''
-        }
     }
 }
 
