@@ -572,10 +572,22 @@ class SemanticMatcher:
             text = pytesseract.image_to_string(img, lang='eng', config='--psm 6')
             text = text.strip()
             
-            # If OCR returns very little text, create a descriptive fallback
+            # If OCR returns very little text, try multiple PSM modes to get better extraction
             if len(text) < 10:
-                # Create a more descriptive text based on region type
-                text = f"{region.region_type} diagram showing {region.region_type} information"
+                try:
+                    # Try different PSM modes to get better text extraction
+                    for psm_mode in [6, 11, 3, 8]:
+                        alt_text = pytesseract.image_to_string(img, lang='eng', config=f'--psm {psm_mode}')
+                        if len(alt_text.strip()) > len(text.strip()):
+                            text = alt_text.strip()
+                            if len(text) >= 10:
+                                break
+                except:
+                    pass
+                
+                # If still no good text, create a minimal descriptive fallback
+                if len(text) < 10:
+                    text = f"{region.region_type} visual element on page {region.page_num + 1}"
             
             return text
             
