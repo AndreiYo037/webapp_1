@@ -32,8 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     # For pytesseract (tesseract-ocr)
     tesseract-ocr \
-    # For opencv-python
-    libgl1-mesa-glx \
+    # For opencv-python-headless (no GUI dependencies needed)
     libglib2.0-0 \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
