@@ -7,10 +7,15 @@ cmds = [
   "source /opt/venv/bin/activate",
   "/opt/venv/bin/pip install --upgrade pip",
   "/opt/venv/bin/pip install -r requirements.txt",
-  "/opt/venv/bin/python manage.py collectstatic --noinput",
-  "/opt/venv/bin/python manage.py migrate --noinput"
+  "/opt/venv/bin/python manage.py collectstatic --noinput"
+]
+
+[phases.setup]
+cmds = [
+  "source /opt/venv/bin/activate",
+  "/opt/venv/bin/python manage.py migrate --noinput || echo 'Migrations failed, will retry on startup'"
 ]
 
 [start]
-cmd = "/opt/venv/bin/gunicorn flashcard_app.wsgi --log-file -"
+cmd = "source /opt/venv/bin/activate && /opt/venv/bin/python manage.py migrate --noinput && /opt/venv/bin/gunicorn flashcard_app.wsgi --log-file -"
 
