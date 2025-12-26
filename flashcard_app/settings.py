@@ -252,9 +252,8 @@ DEFAULT_FLASHCARDS_COUNT = int(os.getenv('DEFAULT_FLASHCARDS_COUNT', '20'))  # D
 ENABLE_VISUAL_REGIONS = os.getenv('ENABLE_VISUAL_REGIONS', 'true').lower() == 'true'
 
 # Django Allauth Configuration
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_LOGIN_METHODS = {'email'}  # Use email for authentication
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']  # Email is required, username not required
 ACCOUNT_EMAIL_VERIFICATION = 'none'  # Set to 'mandatory' if you want email verification
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
