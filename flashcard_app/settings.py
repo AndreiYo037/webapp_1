@@ -232,4 +232,9 @@ USE_LLM = os.getenv('USE_LLM', 'true').lower() == 'true'  # Set to 'false' to us
 # Flashcard Generation Settings
 DEFAULT_FLASHCARDS_COUNT = int(os.getenv('DEFAULT_FLASHCARDS_COUNT', '20'))  # Default number of flashcards to generate
 
+# Visual Region Matching Settings
+# Set to 'false' to disable visual region detection and matching (uses standard image extraction instead)
+# This can help if you experience memory issues with large documents
+ENABLE_VISUAL_REGIONS = os.getenv('ENABLE_VISUAL_REGIONS', 'true').lower() == 'true'
+
 
