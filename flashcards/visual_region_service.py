@@ -486,9 +486,15 @@ class SemanticMatcher:
             return self._fallback_match(regions, questions)
         
         try:
-            # Process all regions - no limit
-            # With optimized batch processing (batch size 16), we can handle all regions
-            print(f"[INFO] Processing all {len(regions)} regions for semantic matching")
+            # Process all regions, but add safety check for extremely large numbers
+            # With optimized batch processing (batch size 16), we can handle most cases
+            # But if there are too many (200+), it might cause memory/timeout issues
+            MAX_SAFE_PROCESSING = 200  # Safety limit for extremely large numbers
+            if len(regions) > MAX_SAFE_PROCESSING:
+                print(f"[WARNING] Extremely large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} for safety")
+                regions = regions[:MAX_SAFE_PROCESSING]
+            else:
+                print(f"[INFO] Processing all {len(regions)} regions for semantic matching")
             
             # Process all regions up to MAX_REGIONS limit (already limited above)
             # No need for additional fallback - semantic matching can handle up to 50 regions
@@ -690,9 +696,15 @@ class VisualRegionPipeline:
             
             print(f"[INFO] Detected {len(regions)} visual regions")
             
-            # Process all regions - no limit
-            # With optimized batch processing (batch size 16), we can handle all regions
-            print(f"[INFO] Processing all {len(regions)} detected regions for semantic matching")
+            # Process all regions, but add safety check for extremely large numbers
+            # With optimized batch processing (batch size 16), we can handle most cases
+            # But if there are too many (200+), it might cause memory/timeout issues
+            MAX_SAFE_PROCESSING = 200  # Safety limit for extremely large numbers
+            if len(regions) > MAX_SAFE_PROCESSING:
+                print(f"[WARNING] Extremely large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} for safety")
+                regions = regions[:MAX_SAFE_PROCESSING]
+            else:
+                print(f"[INFO] Processing all {len(regions)} detected regions for semantic matching")
             
             # Try semantic matching on the (possibly limited) regions
             # Match regions to questions with comprehensive error handling

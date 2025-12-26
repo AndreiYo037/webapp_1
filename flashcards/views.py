@@ -130,13 +130,17 @@ def upload_file(request):
                                 # Don't catch keyboard interrupt, let it propagate
                                 raise
                             except (MemoryError, RuntimeError, SystemExit, OSError, ImportError) as critical_err:
-                                print(f"[WARNING] Critical error in visual region pipeline: {type(critical_err).__name__}: {str(critical_err)}")
+                                print(f"[ERROR] Critical error in visual region pipeline: {type(critical_err).__name__}: {str(critical_err)}")
                                 print("[INFO] Falling back to standard image extraction")
+                                import traceback
+                                traceback.print_exc()
                                 use_visual_regions = False
                                 region_matches = []
                             except Exception as e:
-                                print(f"[WARNING] Unexpected error in visual region pipeline: {type(e).__name__}: {str(e)}")
+                                print(f"[ERROR] Unexpected error in visual region pipeline: {type(e).__name__}: {str(e)}")
                                 print("[INFO] Falling back to standard image extraction")
+                                import traceback
+                                traceback.print_exc()
                                 use_visual_regions = False
                                 region_matches = []
                             
