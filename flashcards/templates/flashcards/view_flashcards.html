@@ -21,13 +21,14 @@
                         <h3>Question {{ forloop.counter }}</h3>
                         <p class="flashcard-text">{{ flashcard.question }}</p>
                         {% if flashcard.cropped_image %}
-                            <div class="flashcard-image-container">
+                            <div class="flashcard-image-container" data-flashcard-id="{{ flashcard.id }}" data-image-type="cropped">
                                 <img src="{{ flashcard.cropped_image.url }}" 
                                      alt="Auto-cropped diagram for question" 
                                      class="flashcard-image"
+                                     id="img-{{ flashcard.id }}-cropped"
                                      loading="lazy"
-                                     onerror="this.style.display='none'; console.error('Failed to load cropped image:', this.src);"
-                                     onload="console.log('Image loaded successfully:', this.src);">
+                                     onerror="handleImageError(this, '{{ flashcard.cropped_image.url }}');"
+                                     onload="handleImageLoad(this, '{{ flashcard.cropped_image.url }}');">
                             </div>
                         {% elif flashcard.source_image %}
                             {% if flashcard.source_image.file %}
@@ -110,31 +111,78 @@ function flipCard(id) {
     }
 }
 
+// Image loading handlers
+function handleImageError(img, url) {
+    console.error('Image failed to load:', url);
+    console.error('Image element:', img);
+    const container = img.closest('.flashcard-image-container');
+    if (container) {
+        // Try to reload the image
+        const newImg = document.createElement('img');
+        newImg.src = url + '?t=' + Date.now(); // Add cache buster
+        newImg.className = 'flashcard-image';
+        newImg.alt = img.alt;
+        newImg.onerror = function() {
+            container.innerHTML = '<p style="color: rgba(255,255,255,0.7); font-size: 0.9em; padding: 20px;">Image not available</p>';
+        };
+        newImg.onload = function() {
+            container.replaceChild(newImg, img);
+            handleImageLoad(newImg, url);
+        };
+        container.replaceChild(newImg, img);
+    }
+}
+
+function handleImageLoad(img, url) {
+    console.log('Image loaded successfully:', url);
+    img.style.display = 'block';
+    img.style.visibility = 'visible';
+    img.style.opacity = '1';
+}
+
 // Debug: Log image loading issues and ensure visibility
 document.addEventListener('DOMContentLoaded', function() {
+    // Check all flashcard image containers
+    const containers = document.querySelectorAll('.flashcard-image-container');
+    console.log(`Found ${containers.length} flashcard image containers`);
+    
+    containers.forEach((container, index) => {
+        const img = container.querySelector('.flashcard-image');
+        const flashcardId = container.getAttribute('data-flashcard-id');
+        const imageType = container.getAttribute('data-image-type');
+        
+        console.log(`Container ${index + 1}: Flashcard ID=${flashcardId}, Type=${imageType}, Has Image=${!!img}`);
+        
+        if (img) {
+            console.log(`  Image src: ${img.src}`);
+            // Ensure image is visible
+            img.style.display = 'block';
+            img.style.visibility = 'visible';
+            img.style.opacity = '1';
+            
+            // Force reload if image seems broken
+            if (!img.complete || img.naturalHeight === 0) {
+                console.log(`  Image appears broken, attempting reload...`);
+                const originalSrc = img.src;
+                img.src = '';
+                setTimeout(() => {
+                    img.src = originalSrc + '?t=' + Date.now();
+                }, 100);
+            }
+        } else {
+            console.warn(`  Container ${index + 1} has no image element!`);
+        }
+    });
+    
+    // Check all images
     const images = document.querySelectorAll('.flashcard-image');
-    console.log(`Found ${images.length} flashcard images to load`);
+    console.log(`Found ${images.length} flashcard images total`);
     
     images.forEach((img, index) => {
         // Ensure image is visible
         img.style.display = 'block';
         img.style.visibility = 'visible';
         img.style.opacity = '1';
-        
-        img.addEventListener('error', function() {
-            console.error(`Image ${index + 1} failed to load:`, this.src);
-            // Show a placeholder or error message
-            const container = this.closest('.flashcard-image-container');
-            if (container) {
-                container.innerHTML = '<p style="color: rgba(255,255,255,0.7); font-size: 0.9em;">Image not available</p>';
-            }
-        });
-        
-        img.addEventListener('load', function() {
-            console.log(`Image ${index + 1} loaded successfully:`, this.src);
-            this.style.display = 'block';
-            this.style.visibility = 'visible';
-        });
     });
     
     // Ensure flip buttons are visible

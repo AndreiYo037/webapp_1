@@ -336,9 +336,16 @@ def view_flashcards(request, set_id):
     except (AttributeError, Exception):
         source_file_is_image = False
     
-    # Add display image info to each flashcard for template
+    # Debug: Log image information for each flashcard
     for flashcard in flashcards:
         flashcard.display_image = flashcard.get_display_image()
+        # Debug logging
+        if flashcard.cropped_image:
+            print(f"[DEBUG] Flashcard {flashcard.id} has cropped_image: {flashcard.cropped_image.name}, URL: {flashcard.cropped_image.url if flashcard.cropped_image else 'N/A'}")
+        elif flashcard.source_image:
+            print(f"[DEBUG] Flashcard {flashcard.id} has source_image: {flashcard.source_image.filename}")
+        else:
+            print(f"[DEBUG] Flashcard {flashcard.id} has no image")
     
     return render(request, 'flashcards/view_flashcards.html', {
         'flashcard_set': flashcard_set,
