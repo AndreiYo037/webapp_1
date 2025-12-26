@@ -596,46 +596,74 @@ class VisualRegionPipeline:
         """
         Process a document and match visual regions to questions
         Returns list of (question_index, region, confidence_score) tuples
+        COMPREHENSIVE ERROR HANDLING: This method will never raise exceptions, always returns a list
         """
-        print(f"[INFO] Processing document for visual region detection...")
-        
-        # Detect regions
-        if file_type == 'application/pdf' or file_path.endswith('.pdf'):
-            regions = self.detector.detect_regions_in_pdf(file_path)
-        elif file_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
-                          'application/msword'] or file_path.endswith(('.docx', '.doc')):
-            regions = self.detector.detect_regions_in_docx(file_path)
-        else:
-            print(f"[WARNING] Unsupported file type for visual region detection: {file_type}")
-            return []
-        
-        if not regions:
-            print("[WARNING] No visual regions detected in document")
-            return []
-        
-        print(f"[INFO] Detected {len(regions)} visual regions")
-        
-        # Early exit if too many regions to prevent memory issues
-        # The matcher will also limit, but we can skip the expensive operation entirely
-        if len(regions) > 30:
-            print(f"[WARNING] Too many regions ({len(regions)}) detected. Skipping semantic matching to prevent memory issues.")
-            print("[INFO] Using fallback matching instead")
-            # Use fallback matching directly
-            matches = self.matcher._fallback_match(regions, questions)
-        else:
-            # Match regions to questions
-            matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.3)
-        
-        if not matches:
-            print("[WARNING] No semantic matches found between questions and regions")
-            return []
-        
-        print(f"[INFO] Matched {len(matches)} questions to visual regions")
-        
-        # Return matched regions
-        result = []
-        for q_idx, r_idx, score in matches:
-            result.append((q_idx, regions[r_idx], score))
-        
-        return result
+        try:
+            print(f"[INFO] Processing document for visual region detection...")
+            
+            # Detect regions with error handling
+            try:
+                if file_type == 'application/pdf' or file_path.endswith('.pdf'):
+                    regions = self.detector.detect_regions_in_pdf(file_path)
+                elif file_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+                                  'application/msword'] or file_path.endswith(('.docx', '.doc')):
+                    regions = self.detector.detect_regions_in_docx(file_path)
+                else:
+                    print(f"[WARNING] Unsupported file type for visual region detection: {file_type}")
+                    return []
+            except Exception as detect_err:
+                print(f"[WARNING] Error detecting regions: {type(detect_err).__name__}: {str(detect_err)}")
+                return []
+            
+            if not regions:
+                print("[WARNING] No visual regions detected in document")
+                return []
+            
+            print(f"[INFO] Detected {len(regions)} visual regions")
+            
+            # AGGRESSIVE: Early exit if too many regions to prevent ANY memory issues
+            # Use a very conservative limit
+            MAX_SAFE_REGIONS = 15  # Reduced from 30 to 15 for maximum safety
+            if len(regions) > MAX_SAFE_REGIONS:
+                print(f"[WARNING] Too many regions ({len(regions)}) detected. Maximum safe limit is {MAX_SAFE_REGIONS}.")
+                print("[INFO] Limiting to top regions and using fallback matching to prevent memory issues")
+                regions = regions[:MAX_SAFE_REGIONS]
+                # Use fallback matching directly - no semantic matching at all
+                matches = self.matcher._fallback_match(regions, questions)
+            else:
+                # Match regions to questions with comprehensive error handling
+                try:
+                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.3)
+                except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
+                    print(f"[WARNING] Memory/runtime error during matching: {type(mem_err).__name__}: {str(mem_err)}")
+                    print("[INFO] Using fallback matching instead")
+                    matches = self.matcher._fallback_match(regions, questions)
+                except Exception as match_err:
+                    print(f"[WARNING] Error during semantic matching: {type(match_err).__name__}: {str(match_err)}")
+                    print("[INFO] Using fallback matching instead")
+                    matches = self.matcher._fallback_match(regions, questions)
+            
+            if not matches:
+                print("[WARNING] No matches found between questions and regions")
+                return []
+            
+            print(f"[INFO] Matched {len(matches)} questions to visual regions")
+            
+            # Return matched regions with error handling
+            try:
+                result = []
+                for q_idx, r_idx, score in matches:
+                    if r_idx < len(regions):
+                        result.append((q_idx, regions[r_idx], score))
+                return result
+            except Exception as result_err:
+                print(f"[WARNING] Error building result list: {type(result_err).__name__}: {str(result_err)}")
+                return []
+                
+        except Exception as outer_err:
+            # Ultimate catch-all: never let this method raise an exception
+            print(f"[ERROR] Unexpected error in process_document: {type(outer_err).__name__}: {str(outer_err)}")
+            import traceback
+            traceback.print_exc()
+            return []  # Always return empty list, never raise
 

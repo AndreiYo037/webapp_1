@@ -88,20 +88,28 @@ def upload_file(request):
                     is_image_file = file_type.startswith('image/')
                     
                     # Try visual region pipeline first, but always fall back to standard extraction if it fails
+                    # COMPREHENSIVE FIX: Make visual region matching completely safe and optional
                     use_visual_regions = False
                     region_matches = []
                     
-                    if not is_image_file and (file_type == 'application/pdf' or file_path.endswith('.pdf') or
+                    # Check if visual region matching is enabled (can be disabled via env var for safety)
+                    enable_visual_regions = getattr(settings, 'ENABLE_VISUAL_REGIONS', True)
+                    
+                    if not enable_visual_regions:
+                        print("[INFO] Visual region matching is disabled, using standard image extraction")
+                    elif not is_image_file and (file_type == 'application/pdf' or file_path.endswith('.pdf') or
                                              file_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
                                                           'application/msword'] or file_path.endswith(('.docx', '.doc'))):
+                        # Wrap entire visual region pipeline in comprehensive error handling
                         try:
                             # Extract questions for matching
                             questions = [card['question'] for card in flashcards_data]
                             
-                            # Process document with visual region pipeline
-                            # Wrap in try-except to catch memory errors and fallback gracefully
-                            pipeline = VisualRegionPipeline()
+                            # Add timeout protection using signal (if available) or just try-catch
+                            print("[INFO] Attempting visual region matching (with automatic fallback on any error)...")
+                            
                             try:
+                                pipeline = VisualRegionPipeline()
                                 region_matches = pipeline.process_document(file_path, file_type, questions)
                                 
                                 if region_matches and len(region_matches) > 0:
@@ -110,16 +118,29 @@ def upload_file(request):
                                 else:
                                     print(f"[INFO] Visual region pipeline found no matches, using standard image extraction")
                                     use_visual_regions = False
-                            except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
-                                print(f"[WARNING] Memory/runtime error in visual region pipeline: {str(mem_err)}")
-                                print("[INFO] Falling back to standard image extraction due to memory constraints")
+                                    
+                            except KeyboardInterrupt:
+                                # Don't catch keyboard interrupt, let it propagate
+                                raise
+                            except (MemoryError, RuntimeError, SystemExit, OSError, ImportError) as critical_err:
+                                print(f"[WARNING] Critical error in visual region pipeline: {type(critical_err).__name__}: {str(critical_err)}")
+                                print("[INFO] Falling back to standard image extraction")
                                 use_visual_regions = False
+                                region_matches = []
+                            except Exception as e:
+                                print(f"[WARNING] Unexpected error in visual region pipeline: {type(e).__name__}: {str(e)}")
+                                print("[INFO] Falling back to standard image extraction")
+                                use_visual_regions = False
+                                region_matches = []
                             
-                        except Exception as e:
-                            print(f"[WARNING] Visual region pipeline failed: {str(e)}, falling back to standard image matching")
-                            import traceback
-                            traceback.print_exc()
+                        except Exception as outer_err:
+                            # Catch-all for any errors in the outer try block
+                            print(f"[WARNING] Error setting up visual region pipeline: {type(outer_err).__name__}: {str(outer_err)}")
+                            print("[INFO] Falling back to standard image extraction")
                             use_visual_regions = False
+                            region_matches = []
+                    else:
+                        print("[INFO] File type not supported for visual region matching, using standard image extraction")
                     
                     # If visual regions worked, use them; otherwise use standard image extraction
                     if use_visual_regions:
