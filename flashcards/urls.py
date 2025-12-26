@@ -8,6 +8,7 @@ urlpatterns = [
     path('files/', views.list_files, name='list_files'),
     path('flashcards/<int:set_id>/', views.view_flashcards, name='view_flashcards'),
     path('sets/', views.list_flashcard_sets, name='list_sets'),
+    path('signup/', views.signup, name='signup'),
     path('health/', views.health_check, name='health_check'),
 ]
 

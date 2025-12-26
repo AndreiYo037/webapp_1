@@ -8,7 +8,7 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('accounts/', include('allauth.urls')),  # Django allauth URLs for Google OAuth
+    path('accounts/', include('django.contrib.auth.urls')),  # Django built-in auth URLs
     path('', include('flashcards.urls')),
 ]
 
