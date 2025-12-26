@@ -702,12 +702,11 @@ class VisualRegionPipeline:
             
             print(f"[INFO] Detected {len(regions)} visual regions")
             
-            # Process regions with a reasonable limit to prevent timeouts
-            # Processing 100+ regions causes worker timeouts (300s limit)
-            # Limit to 75 regions to stay within timeout while processing most content
-            MAX_SAFE_PROCESSING = 75  # Limit to prevent worker timeouts
+            # Process regions with a reasonable limit to prevent timeouts and reduce runtime
+            # Limit to 30 regions for faster processing while maintaining quality
+            MAX_SAFE_PROCESSING = 30  # Reduced from 50 to 30 for faster runtime
             if len(regions) > MAX_SAFE_PROCESSING:
-                print(f"[WARNING] Large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} to prevent worker timeout")
+                print(f"[WARNING] Large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} for faster processing")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
                 # Sort by confidence and take top regions for better quality
                 regions = sorted(regions, key=lambda r: r.confidence, reverse=True)[:MAX_SAFE_PROCESSING]
