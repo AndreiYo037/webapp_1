@@ -488,13 +488,14 @@ class SemanticMatcher:
             print(f"[INFO] Generating embeddings for {len(questions)} questions and {len(region_texts)} regions...")
             try:
                 # Process questions first (usually small number)
-                question_embeddings = self.generate_embeddings(questions, batch_size=8)
+                # Increased batch size to 16 for faster processing
+                question_embeddings = self.generate_embeddings(questions, batch_size=16)
                 if question_embeddings is None:
                     raise Exception("Failed to generate question embeddings")
                 
                 # Process regions with optimized batch size to balance speed and memory
-                # Increased batch size from 4 to 8 to process faster and avoid timeouts
-                region_embeddings = self.generate_embeddings(region_texts, batch_size=8)
+                # Increased batch size to 16 for faster processing and to avoid timeouts
+                region_embeddings = self.generate_embeddings(region_texts, batch_size=16)
                 if region_embeddings is None:
                     raise Exception("Failed to generate region embeddings")
                     
