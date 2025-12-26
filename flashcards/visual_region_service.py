@@ -471,7 +471,7 @@ class SemanticMatcher:
     
     def match_regions_to_questions(self, regions: List[VisualRegion], 
                                   questions: List[str],
-                                  min_confidence: float = 0.35) -> List[Tuple[int, int, float]]:
+                                  min_confidence: float = 0.45) -> List[Tuple[int, int, float]]:
         """
         Match visual regions to questions using semantic similarity
         Returns list of (question_index, region_index, similarity_score) tuples
@@ -485,12 +485,11 @@ class SemanticMatcher:
             return []
         
         try:
-            # Process regions with a reasonable limit to prevent timeouts
-            # Processing 100+ regions causes worker timeouts (300s limit)
-            # Limit to 50 regions to stay within timeout while processing most content
-            MAX_SAFE_PROCESSING = 50  # Limit to prevent worker timeouts
+            # Process regions with a reasonable limit to prevent timeouts and reduce runtime
+            # Limit to 30 regions for faster processing while maintaining quality
+            MAX_SAFE_PROCESSING = 30  # Reduced from 50 to 30 for faster runtime
             if len(regions) > MAX_SAFE_PROCESSING:
-                print(f"[WARNING] Large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} to prevent worker timeout")
+                print(f"[WARNING] Large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} for faster processing")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
                 # Sort by confidence and take top regions for better quality
                 regions = sorted(regions, key=lambda r: r.confidence, reverse=True)[:MAX_SAFE_PROCESSING]
@@ -518,13 +517,10 @@ class SemanticMatcher:
                 if question_embeddings is None:
                     raise Exception("Failed to generate question embeddings")
                 
-                # Process regions with optimized batch size
-                # Adjust batch size based on number of regions to prevent memory/timeout issues
-                if len(region_texts) > 50:
-                    # For large numbers, use very small batches to prevent timeout
-                    region_batch_size = 4
-                elif len(region_texts) > 30:
-                    # For medium numbers, use small batches
+                # Process regions with optimized batch size for faster runtime
+                # Use larger batches for faster processing (regions already limited to 30)
+                if len(region_texts) > 20:
+                    # For larger numbers, use medium batches
                     region_batch_size = 8
                 else:
                     # For smaller numbers, use larger batches for speed
@@ -578,12 +574,12 @@ class SemanticMatcher:
             
             # Adjust threshold if all scores are low but above a reasonable minimum
             # Be very strict - only adjust if scores are close to threshold
-            if max_scores and max(max_scores) < min_confidence and max(max_scores) > 0.30:
-                # Only adjust if max score is within 30% of threshold (very strict)
-                adjusted_threshold = max(0.30, max(max_scores) * 0.97)  # Use 97% of max score, but not below 0.30
+            if max_scores and max(max_scores) < min_confidence and max(max_scores) > 0.40:
+                # Only adjust if max score is within 40% of threshold (very strict)
+                adjusted_threshold = max(0.40, max(max_scores) * 0.98)  # Use 98% of max score, but not below 0.40
                 print(f"[INFO] Adjusting confidence threshold from {min_confidence} to {adjusted_threshold:.3f}")
                 min_confidence = adjusted_threshold
-            elif max_scores and max(max_scores) <= 0.30:
+            elif max_scores and max(max_scores) <= 0.40:
                 print(f"[WARNING] All similarity scores are very low (max: {max(max_scores):.3f}), no matches will be displayed")
             
             # Sort by similarity score (highest first)
@@ -721,7 +717,7 @@ class VisualRegionPipeline:
             # Try semantic matching on the (possibly limited) regions
             # Match regions to questions with comprehensive error handling
             try:
-                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.35)
+                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.45)
             except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
                 print(f"[ERROR] Memory/runtime error during matching: {type(mem_err).__name__}: {str(mem_err)}")
                 print("[INFO] No images will be displayed - semantic matching failed")
