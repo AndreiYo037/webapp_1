@@ -178,3 +178,27 @@ STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 # Optional: Use Stripe Price IDs if you create products in Stripe Dashboard
 STRIPE_PRICE_ID_MONTHLY = os.environ.get('STRIPE_PRICE_ID_MONTHLY', '')
 
+# LLM Configuration (Groq - Primary, Gemini - Fallback, Ollama - Local only)
+# Set GROQ_API_KEY in Railway environment variables to enable Groq LLM
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+GROQ_MODEL = os.environ.get('GROQ_MODEL', 'llama-3.3-70b-versatile')
+GROQ_VISION_MODEL = os.environ.get('GROQ_VISION_MODEL', 'llama-3.1-8b-instant')
+
+# Gemini Configuration (Fallback if Groq fails)
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-1.5-flash')
+
+# Ollama Configuration (Local only - not for production/cloud)
+OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
+OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'llama3.2')
+
+# LLM Provider Selection
+# Options: 'groq' (recommended for cloud), 'gemini', 'ollama' (local only)
+LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'groq').lower()
+
+# Enable/Disable LLM (set to 'true' to enable, 'false' to use rule-based generation)
+USE_LLM = os.environ.get('USE_LLM', 'true').lower() in ('true', '1', 'yes', 'on')
+
+# Semantic Matching Configuration
+EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
+
