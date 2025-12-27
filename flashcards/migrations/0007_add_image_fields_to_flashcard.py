@@ -11,19 +11,14 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Add source_image field (already exists in migration 0002, but ensure it's there)
-        # Add cropped_image field
+        # Add cropped_image field (source_image already exists from migration 0002)
         migrations.AddField(
             model_name='flashcard',
             name='cropped_image',
             field=models.ImageField(blank=True, null=True, upload_to='flashcard_crops/'),
         ),
-        # Ensure source_image field exists (it should from migration 0002)
-        # If it doesn't exist, this will add it
-        migrations.AddField(
-            model_name='flashcard',
-            name='source_image',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='flashcards', to='flashcards.fileupload'),
-        ),
+        # Note: source_image field already exists from migration 0002_flashcard_source_image
+        # It references 'flashcards.uploadedfile', but we now use 'flashcards.fileupload'
+        # For fresh databases, this is fine as migrations run sequentially
     ]
 
