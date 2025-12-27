@@ -33,12 +33,23 @@ git push -u origin main
    SECRET_KEY=your-secret-key-here
    DEBUG=False
    ALLOWED_HOSTS=your-app.railway.app
+   USE_LLM=true
+   LLM_PROVIDER=groq
+   GROQ_API_KEY=your-groq-api-key-here
    ```
 
    Generate SECRET_KEY:
    ```bash
    python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
    ```
+
+   **Get Groq API Key (FREE)**:
+   1. Go to https://console.groq.com/
+   2. Sign up/Login (free account)
+   3. Go to API Keys section
+   4. Create a new API key
+   5. Copy the key (starts with `gsk_`)
+   6. Add it as `GROQ_API_KEY` in Railway variables
 
 7. **Optional - Email Configuration**:
    ```
@@ -77,6 +88,10 @@ git push -u origin main
 | `DEBUG` | Yes | Set to `False` for production |
 | `ALLOWED_HOSTS` | Yes | Comma-separated hosts |
 | `DATABASE_URL` | Auto | Set by Railway PostgreSQL service |
+| `USE_LLM` | Yes | Set to `true` to enable LLM (default: `true`) |
+| `LLM_PROVIDER` | Yes | Set to `groq` for Groq LLM (default: `groq`) |
+| `GROQ_API_KEY` | Yes | Groq API key from https://console.groq.com/ (starts with `gsk_`) |
+| `GROQ_MODEL` | No | Groq model name (default: `llama-3.3-70b-versatile`) |
 | `EMAIL_HOST` | No | SMTP server for emails |
 | `EMAIL_PORT` | No | SMTP port (usually 587) |
 | `EMAIL_USE_TLS` | No | Set to `True` |
