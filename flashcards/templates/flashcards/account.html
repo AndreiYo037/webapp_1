@@ -1,0 +1,196 @@
+{% extends 'flashcards/base.html' %}
+
+{% block title %}My Account - Flashcard App{% endblock %}
+
+{% block extra_css %}
+.account-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.account-section {
+    background: #f8f9fa;
+    padding: 25px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+}
+
+.account-section h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 10px;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    font-weight: 500;
+    color: #333;
+}
+
+.info-value {
+    color: #6c757d;
+}
+
+.premium-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.free-badge {
+    display: inline-block;
+    background: #6c757d;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+{% endblock %}
+
+{% block content %}
+<div class="account-container">
+    <h1 style="text-align: center; color: #667eea; margin-bottom: 30px;">My Account</h1>
+    
+    <div class="account-section">
+        <h3>Account Information</h3>
+        <div class="info-row">
+            <span class="info-label">Username:</span>
+            <span class="info-value">{{ user.username }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Email:</span>
+            <span class="info-value">
+                {{ user.email|default:"Not provided" }}
+                {% if user.email %}
+                    {% if profile.email_verified %}
+                        <span style="color: #28a745; margin-left: 10px;">✓ Verified</span>
+                    {% else %}
+                        <span style="color: #dc3545; margin-left: 10px;">✗ Not Verified</span>
+                        <a href="{% url 'flashcards:resend_verification' %}" style="color: #667eea; margin-left: 10px; font-size: 0.9em;">Resend Verification</a>
+                    {% endif %}
+                {% endif %}
+            </span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Account Type:</span>
+            <span class="info-value">
+                {% if profile.is_premium %}
+                    <span class="premium-badge">Premium</span>
+                {% else %}
+                    <span class="free-badge">Free</span>
+                {% endif %}
+            </span>
+        </div>
+    </div>
+    
+    <div class="account-section">
+        <h3>Usage Statistics</h3>
+        <div class="info-row">
+            <span class="info-label">Flashcard Generations Used:</span>
+            <span class="info-value">
+                {% if profile.is_premium %}
+                    Unlimited
+                {% else %}
+                    {{ profile.flashcard_generations_used }}/3
+                {% endif %}
+            </span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Remaining Free Generations:</span>
+            <span class="info-value">
+                {% if profile.is_premium %}
+                    Unlimited
+                {% else %}
+                    {{ remaining }}
+                {% endif %}
+            </span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Total Flashcard Sets:</span>
+            <span class="info-value">{{ flashcard_sets_count }}</span>
+        </div>
+    </div>
+    
+    <div class="account-section">
+        <h3>Subscriptions</h3>
+        {% if subscriptions %}
+            {% for subscription in subscriptions %}
+            <div style="background: {% if subscription.is_active %}#d4edda{% else %}#f8d7da{% endif %}; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                <div class="info-row">
+                    <span class="info-label">Plan:</span>
+                    <span class="info-value">{{ subscription.plan_name|title }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status:</span>
+                    <span class="info-value">{{ subscription.get_status_display }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Amount Paid:</span>
+                    <span class="info-value">${{ subscription.amount_paid }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Payment Date:</span>
+                    <span class="info-value">{{ subscription.payment_date|date:"F d, Y" }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Expires At:</span>
+                    <span class="info-value">
+                        {{ subscription.expires_at|date:"F d, Y" }}
+                        {% if subscription.expires_at < now %}
+                            <span style="color: #dc3545;">(Expired)</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Auto-renew:</span>
+                    <span class="info-value">{% if subscription.auto_renew %}Yes{% else %}No{% endif %}</span>
+                </div>
+                <div style="margin-top: 15px; text-align: center;">
+                    {% if subscription.is_active and subscription.status != 'cancelled' %}
+                        <a href="{% url 'flashcards:cancel_subscription' subscription.id %}" class="btn btn-danger" style="margin-right: 10px;">Cancel</a>
+                    {% endif %}
+                    <a href="{% url 'flashcards:renew_subscription' subscription.id %}" class="btn" style="background: #28a745;">Renew</a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="color: #6c757d;">No subscriptions found.</p>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="account-section" style="background: #fff3cd; border: 2px solid #ffc107;">
+        <h3 style="color: #856404;">Upgrade to Premium</h3>
+        <p style="color: #856404; margin-bottom: 15px;">
+            You've used {{ profile.flashcard_generations_used }} of your 3 free generations.
+            {% if remaining == 0 %}
+                Upgrade now for unlimited flashcard generations!
+            {% else %}
+                Upgrade now to get unlimited access before you run out!
+            {% endif %}
+        </p>
+        <a href="{% url 'flashcards:upgrade' %}" class="btn">Upgrade to Premium</a>
+    </div>
+    {% endif %}
+    
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="{% url 'flashcards:index' %}" class="btn btn-secondary">Back to Home</a>
+    </div>
+</div>
+{% endblock %}
+

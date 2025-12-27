@@ -1,0 +1,18 @@
+{% extends 'flashcards/emails/base_email.html' %}
+
+{% block title %}Subscription Cancelled{% endblock %}
+
+{% block content %}
+<h2>Subscription Cancelled</h2>
+<p>Hello {{ user.username }},</p>
+<p>Your Premium subscription has been cancelled.</p>
+<div style="background: #fff3cd; padding: 20px; border-radius: 6px; margin: 20px 0;">
+    <p><strong>Cancelled:</strong> {{ subscription.cancelled_at|date:"F d, Y" }}</p>
+    <p><strong>Access Until:</strong> {{ subscription.expires_at|date:"F d, Y" }}</p>
+</div>
+<p>You can continue using Premium features until {{ subscription.expires_at|date:"F d, Y" }}.</p>
+<p>After that, you'll be switched back to the free plan with 3 flashcard generations.</p>
+<p>You can reactivate your subscription anytime from your account page.</p>
+<p>We're sorry to see you go! If you have any feedback, please let us know.</p>
+{% endblock %}
+

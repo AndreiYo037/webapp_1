@@ -1,0 +1,146 @@
+{% extends 'flashcards/base.html' %}
+
+{% block title %}Upgrade to Premium - Flashcard App{% endblock %}
+
+{% block extra_css %}
+.pricing-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.pricing-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 40px;
+    border-radius: 12px;
+    text-align: center;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+}
+
+.pricing-card h2 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+
+.pricing-card .price {
+    font-size: 3em;
+    font-weight: bold;
+    margin: 20px 0;
+}
+
+.pricing-card .price span {
+    font-size: 0.5em;
+    font-weight: normal;
+}
+
+.features {
+    background: #f8f9fa;
+    padding: 30px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+}
+
+.features ul {
+    list-style: none;
+    padding: 0;
+}
+
+.features li {
+    padding: 10px 0;
+    border-bottom: 1px solid #dee2e6;
+    color: #333;
+}
+
+.features li:before {
+    content: "✓ ";
+    color: #28a745;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.features li:last-child {
+    border-bottom: none;
+}
+
+.usage-info {
+    background: #fff3cd;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.usage-info strong {
+    color: #856404;
+    font-size: 1.2em;
+}
+{% endblock %}
+
+{% block content %}
+<div class="pricing-container">
+    <h1 style="text-align: center; color: #667eea; margin-bottom: 30px;">Upgrade to Premium</h1>
+    
+    {% if not profile.is_premium %}
+    <div class="usage-info">
+        <strong>Current Usage: {{ profile.flashcard_generations_used }}/3 free generations</strong>
+        <p style="color: #856404; margin-top: 10px;">
+            {% if remaining == 0 %}
+                You've used all your free generations. Upgrade now for unlimited access!
+            {% else %}
+                You have {{ remaining }} free generation{{ remaining|pluralize }} remaining.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+    
+    <div class="pricing-card">
+        <h2>Premium Plan</h2>
+        <div class="price">
+            $9.99<span>/month</span>
+        </div>
+        <p style="font-size: 1.2em; opacity: 0.9;">Unlimited Flashcard Generations</p>
+    </div>
+    
+    <div class="features">
+        <h3 style="color: #667eea; margin-bottom: 20px;">What's Included:</h3>
+        <ul>
+            <li>Unlimited flashcard generations</li>
+            <li>All file formats supported (.txt, .pdf, .docx, .md)</li>
+            <li>Priority processing</li>
+            <li>No usage limits</li>
+            <li>Cancel anytime</li>
+        </ul>
+    </div>
+    
+    {% if profile.is_premium %}
+    <div style="background: #d4edda; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 30px;">
+        <strong style="color: #155724; font-size: 1.2em;">✨ You're already a Premium member!</strong>
+        {% if profile.premium_expires_at %}
+        <p style="color: #155724; margin-top: 10px;">
+            Your subscription expires on {{ profile.premium_expires_at|date:"F d, Y" }}
+        </p>
+        {% endif %}
+    </div>
+    {% else %}
+    <form method="post" style="text-align: center;">
+        {% csrf_token %}
+        <input type="hidden" name="plan" value="premium">
+        <input type="hidden" name="amount" value="9.99">
+        <button type="submit" class="btn" style="font-size: 1.2em; padding: 15px 40px;">
+            Upgrade Now - $9.99/month
+        </button>
+    </form>
+    
+    <div style="text-align: center; margin-top: 20px; color: #6c757d; font-size: 0.9em;">
+        <p>🔒 Secure payment processing</p>
+        <p>Note: This is a demo. In production, integrate with Stripe, PayPal, or your preferred payment gateway.</p>
+    </div>
+    {% endif %}
+    
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="{% url 'flashcards:index' %}" class="btn btn-secondary">Back to Home</a>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,78 @@
+{% extends 'flashcards/base.html' %}
+
+{% block title %}Register - Flashcard App{% endblock %}
+
+{% block content %}
+<div style="max-width: 400px; margin: 0 auto;">
+    <h2 style="text-align: center; margin-bottom: 30px; color: #667eea;">Create Account</h2>
+    
+    <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+        <strong style="color: #004085;">🎉 Get 3 Free Flashcard Generations!</strong>
+    </div>
+    
+    <form method="post" style="background: #f8f9fa; padding: 30px; border-radius: 8px;">
+        {% csrf_token %}
+        
+        {% if form.errors %}
+        <div style="background: #f8d7da; color: #721c24; padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+            {% for field, errors in form.errors.items %}
+                {% for error in errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <div style="margin-bottom: 20px;">
+            <label for="id_username" style="display: block; margin-bottom: 5px; color: #333; font-weight: 500;">Username</label>
+            {{ form.username }}
+            {% if form.username.help_text %}
+            <small style="color: #6c757d; font-size: 0.9em;">{{ form.username.help_text }}</small>
+            {% endif %}
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <label for="id_password1" style="display: block; margin-bottom: 5px; color: #333; font-weight: 500;">Password</label>
+            {{ form.password1 }}
+            {% if form.password1.help_text %}
+            <small style="color: #6c757d; font-size: 0.9em;">{{ form.password1.help_text }}</small>
+            {% endif %}
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <label for="id_password2" style="display: block; margin-bottom: 5px; color: #333; font-weight: 500;">Confirm Password</label>
+            {{ form.password2 }}
+            {% if form.password2.help_text %}
+            <small style="color: #6c757d; font-size: 0.9em;">{{ form.password2.help_text }}</small>
+            {% endif %}
+        </div>
+        
+        <button type="submit" class="btn" style="width: 100%; margin-bottom: 15px;">Create Account</button>
+    </form>
+    
+    <p style="text-align: center; margin-top: 20px; color: #6c757d;">
+        Already have an account? <a href="{% url 'flashcards:login' %}" style="color: #667eea; font-weight: 500;">Login here</a>
+    </p>
+    
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="{% url 'flashcards:index' %}" class="btn btn-secondary">Back to Home</a>
+    </div>
+</div>
+
+<style>
+    input[type="text"], input[type="password"] {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #dee2e6;
+        border-radius: 6px;
+        font-size: 16px;
+        font-family: inherit;
+    }
+    
+    input[type="text"]:focus, input[type="password"]:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+</style>
+{% endblock %}
+

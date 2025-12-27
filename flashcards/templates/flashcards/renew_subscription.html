@@ -1,0 +1,57 @@
+{% extends 'flashcards/base.html' %}
+
+{% block title %}Renew Subscription - Flashcard App{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+    <h2 style="text-align: center; margin-bottom: 30px; color: #667eea;">Renew Subscription</h2>
+    
+    <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+        <h3 style="color: #155724; margin-bottom: 15px;">Extend Your Premium Access</h3>
+        <p style="color: #155724;">
+            Renew your subscription to continue enjoying unlimited flashcard generations.
+        </p>
+    </div>
+    
+    <div style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 30px;">
+        <h3 style="color: #667eea; margin-bottom: 15px;">Current Subscription</h3>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #dee2e6;">
+            <span style="font-weight: 500;">Plan:</span>
+            <span>{{ subscription.plan_name|title }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #dee2e6;">
+            <span style="font-weight: 500;">Current Expiry:</span>
+            <span>{{ subscription.expires_at|date:"F d, Y" }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+            <span style="font-weight: 500;">Amount:</span>
+            <span>${{ subscription.amount_paid }}/month</span>
+        </div>
+    </div>
+    
+    <form method="post" style="background: #f8f9fa; padding: 25px; border-radius: 8px;">
+        {% csrf_token %}
+        <div style="margin-bottom: 20px;">
+            <label for="days" style="display: block; margin-bottom: 5px; color: #333; font-weight: 500;">Renewal Period</label>
+            <select name="days" id="days" style="width: 100%; padding: 12px; border: 2px solid #dee2e6; border-radius: 6px; font-size: 16px;">
+                <option value="30">1 Month - $9.99</option>
+                <option value="90">3 Months - $24.99 (Save $5)</option>
+                <option value="365">1 Year - $99.99 (Save $20)</option>
+            </select>
+        </div>
+        
+        <div style="text-align: center;">
+            <button type="submit" class="btn" style="font-size: 1.1em; padding: 15px 40px;">Renew Subscription</button>
+        </div>
+    </form>
+    
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="{% url 'flashcards:account' %}" class="btn btn-secondary">Back to Account</a>
+    </div>
+    
+    <div style="background: #e7f3ff; padding: 15px; border-radius: 6px; margin-top: 20px; text-align: center; color: #004085; font-size: 0.9em;">
+        <p>Note: In production, this would process payment through your payment gateway.</p>
+    </div>
+</div>
+{% endblock %}
+

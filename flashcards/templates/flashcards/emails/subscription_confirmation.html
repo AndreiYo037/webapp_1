@@ -1,0 +1,18 @@
+{% extends 'flashcards/emails/base_email.html' %}
+
+{% block title %}Subscription Confirmed{% endblock %}
+
+{% block content %}
+<h2>Welcome to Premium! 🎉</h2>
+<p>Hello {{ user.username }},</p>
+<p>Thank you for upgrading to Premium! Your subscription has been confirmed.</p>
+<div style="background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
+    <p><strong>Plan:</strong> {{ subscription.plan_name|title }}</p>
+    <p><strong>Amount Paid:</strong> ${{ subscription.amount_paid }}</p>
+    <p><strong>Expires:</strong> {{ subscription.expires_at|date:"F d, Y" }}</p>
+</div>
+<p>You now have <strong>unlimited flashcard generations</strong>!</p>
+<p>Start creating flashcards by uploading your files.</p>
+<p>Thank you for your support!</p>
+{% endblock %}
+

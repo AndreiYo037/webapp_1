@@ -1,0 +1,77 @@
+{% extends 'flashcards/base.html' %}
+
+{% block title %}Home - Flashcard App{% endblock %}
+
+{% block content %}
+{% if not user.is_authenticated %}
+<div style="background: #e7f3ff; padding: 20px; border-radius: 8px; margin-bottom: 30px; text-align: center;">
+    <h3 style="color: #004085; margin-bottom: 10px;">Get Started Free!</h3>
+    <p style="color: #004085; margin-bottom: 15px;">Create an account to get 3 free flashcard generations</p>
+    <a href="{% url 'flashcards:register' %}" class="btn">Sign Up Free</a>
+    <a href="{% url 'flashcards:login' %}" class="btn btn-secondary">Login</a>
+</div>
+{% else %}
+    {% if remaining_generations == "Unlimited" %}
+    <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+        <strong style="color: #155724;">✨ Premium Member - Unlimited Generations!</strong>
+    </div>
+    {% else %}
+    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+        <strong style="color: #856404;">Free Generations Remaining: {{ remaining_generations }}/3</strong>
+        {% if remaining_generations == 0 %}
+            <p style="color: #856404; margin-top: 10px;">You've used all free generations. <a href="{% url 'flashcards:upgrade' %}" style="color: #667eea; font-weight: bold;">Upgrade to Premium</a> for unlimited access!</p>
+        {% else %}
+            <p style="color: #856404; margin-top: 10px;"><a href="{% url 'flashcards:upgrade' %}" style="color: #667eea; font-weight: bold;">Upgrade to Premium</a> for unlimited generations!</p>
+        {% endif %}
+    </div>
+    {% endif %}
+{% endif %}
+
+<div style="text-align: center; margin-bottom: 30px;">
+    <h2>Welcome to Flashcard App</h2>
+    <p style="color: #6c757d; margin: 20px 0;">Upload a file to generate flashcards and test your knowledge!</p>
+    
+    {% if user.is_authenticated %}
+    <form method="post" action="{% url 'flashcards:upload_file' %}" enctype="multipart/form-data" style="margin: 30px 0;">
+        {% csrf_token %}
+        <div style="margin-bottom: 20px;">
+            <input type="file" name="file" accept=".txt,.pdf,.docx,.doc,.md" required 
+                   style="padding: 10px; border: 2px dashed #667eea; border-radius: 6px; width: 100%; max-width: 400px;">
+        </div>
+        <button type="submit" class="btn" {% if user.is_authenticated and remaining_generations == 0 and remaining_generations != "Unlimited" %}disabled style="opacity: 0.5;"{% endif %}>Upload File</button>
+    </form>
+    
+    <p style="color: #6c757d; font-size: 0.9em;">
+        Supported formats: .txt, .md, .pdf, .docx
+    </p>
+    {% else %}
+    <p style="color: #6c757d; font-size: 1.1em; margin: 30px 0;">
+        Please <a href="{% url 'flashcards:login' %}" style="color: #667eea;">login</a> or <a href="{% url 'flashcards:register' %}" style="color: #667eea;">register</a> to upload files and generate flashcards.
+    </p>
+    {% endif %}
+</div>
+
+{% if user.is_authenticated %}
+    {% if flashcard_sets %}
+    <h2 style="margin-top: 40px; color: #667eea;">Your Flashcard Sets</h2>
+    <div class="card-grid">
+        {% for set in flashcard_sets %}
+        <div class="card">
+            <h3>{{ set.title }}</h3>
+            <p><strong>Created:</strong> {{ set.created_at|date:"M d, Y" }}</p>
+            <p><strong>Cards:</strong> {{ set.flashcards.count }}</p>
+            <div style="margin-top: 15px;">
+                <a href="{% url 'flashcards:view_flashcards' set.id %}" class="btn">View Cards</a>
+                <a href="{% url 'flashcards:start_test' set.id %}" class="btn" style="background: #28a745;">Start Test</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 40px; color: #6c757d;">
+        <p style="font-size: 1.2em;">No flashcard sets yet. Upload a file to get started!</p>
+    </div>
+    {% endif %}
+{% endif %}
+{% endblock %}
+

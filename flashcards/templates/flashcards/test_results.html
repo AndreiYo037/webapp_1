@@ -1,0 +1,125 @@
+{% extends 'flashcards/base.html' %}
+
+{% block title %}Test Results - {{ test_session.flashcard_set.title }}{% endblock %}
+
+{% block extra_css %}
+.results-container {
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.score-display {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 40px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+}
+
+.score-display h2 {
+    font-size: 3em;
+    margin-bottom: 10px;
+}
+
+.score-display .percentage {
+    font-size: 2em;
+    margin-top: 10px;
+}
+
+.score-display .total {
+    font-size: 1.2em;
+    opacity: 0.9;
+}
+
+.result-badge {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-weight: bold;
+    margin-top: 20px;
+}
+
+.result-badge.excellent {
+    background: #28a745;
+    color: white;
+}
+
+.result-badge.good {
+    background: #17a2b8;
+    color: white;
+}
+
+.result-badge.needs-improvement {
+    background: #ffc107;
+    color: #333;
+}
+
+.result-badge.poor {
+    background: #dc3545;
+    color: white;
+}
+
+.test-details {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    text-align: left;
+}
+
+.test-details p {
+    margin: 10px 0;
+    color: #333;
+}
+{% endblock %}
+
+{% block content %}
+<div class="results-container">
+    <h1>Test Results</h1>
+    
+    <div class="score-display">
+        <h2>{{ test_session.score }} / {{ test_session.total_questions }}</h2>
+        <div class="percentage">
+            {% widthratio test_session.score test_session.total_questions 100 %}%
+        </div>
+        <div class="total">
+            {{ test_session.flashcard_set.title }}
+        </div>
+        
+        {% if test_session.score == test_session.total_questions %}
+        <div class="result-badge excellent">Perfect Score! 🎉</div>
+        {% elif test_session.score >= test_session.total_questions|add:"-2" %}
+        <div class="result-badge excellent">Excellent! 🌟</div>
+        {% elif test_session.score >= test_session.total_questions|floatformat:0|add:"-4" %}
+        <div class="result-badge good">Good Job! 👍</div>
+        {% elif test_session.score >= test_session.total_questions|floatformat:0|add:"-6" %}
+        <div class="result-badge needs-improvement">Keep Practicing! 💪</div>
+        {% else %}
+        <div class="result-badge poor">Review Needed 📚</div>
+        {% endif %}
+    </div>
+
+    <div class="test-details">
+        <h3 style="margin-bottom: 15px; color: #667eea;">Test Details</h3>
+        <p><strong>Started:</strong> {{ test_session.started_at|date:"M d, Y H:i" }}</p>
+        {% if test_session.completed_at %}
+        <p><strong>Completed:</strong> {{ test_session.completed_at|date:"M d, Y H:i" }}</p>
+        {% endif %}
+        <p><strong>Score:</strong> {{ test_session.score }} out of {{ test_session.total_questions }} questions</p>
+    </div>
+
+    <div style="margin-top: 30px;">
+        <a href="{% url 'flashcards:view_flashcards' test_session.flashcard_set.id %}" class="btn">
+            Review Cards
+        </a>
+        <a href="{% url 'flashcards:start_test' test_session.flashcard_set.id %}" class="btn" style="background: #28a745;">
+            Try Again
+        </a>
+        <a href="{% url 'flashcards:index' %}" class="btn btn-secondary">
+            Back to Home
+        </a>
+    </div>
+</div>
+{% endblock %}
+

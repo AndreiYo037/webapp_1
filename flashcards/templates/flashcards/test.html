@@ -1,0 +1,146 @@
+{% extends 'flashcards/base.html' %}
+
+{% block title %}Test - {{ flashcard_set.title }}{% endblock %}
+
+{% block extra_css %}
+.test-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.question-card {
+    background: #f8f9fa;
+    border: 2px solid #667eea;
+    border-radius: 8px;
+    padding: 25px;
+    margin-bottom: 25px;
+}
+
+.question-card h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+}
+
+.question-card .question-text {
+    font-size: 1.1em;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.question-card textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 16px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.question-card textarea:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.progress-bar {
+    background: #e9ecef;
+    border-radius: 10px;
+    height: 30px;
+    margin-bottom: 30px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    transition: width 0.3s;
+}
+
+.test-info {
+    background: #e7f3ff;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    text-align: center;
+    color: #004085;
+}
+{% endblock %}
+
+{% block content %}
+<div class="test-container">
+    <div style="margin-bottom: 30px;">
+        <a href="{% url 'flashcards:view_flashcards' flashcard_set.id %}" class="btn btn-secondary">← Back to Cards</a>
+    </div>
+
+    <h2>Test: {{ flashcard_set.title }}</h2>
+    
+    <div class="test-info">
+        <strong>Total Questions: {{ flashcards|length }}</strong> | 
+        <span id="answered-count">0</span> answered
+    </div>
+
+    <form id="test-form" method="post" action="{% url 'flashcards:submit_test' flashcard_set.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="test_session_id" value="{{ test_session.id }}">
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress" style="width: 0%;">0%</div>
+        </div>
+
+        {% for flashcard in flashcards %}
+        <div class="question-card">
+            <h3>Question {{ forloop.counter }} of {{ flashcards|length }}</h3>
+            <div class="question-text">{{ flashcard.question }}</div>
+            <textarea 
+                name="answer_{{ flashcard.id }}" 
+                id="answer_{{ flashcard.id }}"
+                placeholder="Type your answer here..."
+                data-flashcard-id="{{ flashcard.id }}"
+                required></textarea>
+        </div>
+        {% endfor %}
+
+        <div style="text-align: center; margin-top: 30px;">
+            <button type="submit" class="btn" style="font-size: 1.2em; padding: 15px 40px;">
+                Submit Test
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Update progress bar as user types
+    const textareas = document.querySelectorAll('textarea[data-flashcard-id]');
+    const progressBar = document.getElementById('progress');
+    const answeredCount = document.getElementById('answered-count');
+    const totalQuestions = {{ flashcards|length }};
+
+    function updateProgress() {
+        let answered = 0;
+        textareas.forEach(textarea => {
+            if (textarea.value.trim().length > 0) {
+                answered++;
+            }
+        });
+        
+        const percentage = Math.round((answered / totalQuestions) * 100);
+        progressBar.style.width = percentage + '%';
+        progressBar.textContent = percentage + '%';
+        answeredCount.textContent = answered;
+    }
+
+    textareas.forEach(textarea => {
+        textarea.addEventListener('input', updateProgress);
+    });
+
+    // Initialize progress
+    updateProgress();
+</script>
+{% endblock %}
+

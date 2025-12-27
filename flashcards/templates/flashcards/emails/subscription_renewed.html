@@ -1,0 +1,16 @@
+{% extends 'flashcards/emails/base_email.html' %}
+
+{% block title %}Subscription Renewed{% endblock %}
+
+{% block content %}
+<h2>Subscription Renewed! ✨</h2>
+<p>Hello {{ user.username }},</p>
+<p>Your Premium subscription has been renewed successfully.</p>
+<div style="background: #d4edda; padding: 20px; border-radius: 6px; margin: 20px 0;">
+    <p><strong>Plan:</strong> {{ subscription.plan_name|title }}</p>
+    <p><strong>New Expiry Date:</strong> {{ subscription.expires_at|date:"F d, Y" }}</p>
+</div>
+<p>You continue to have <strong>unlimited flashcard generations</strong>!</p>
+<p>Thank you for your continued support!</p>
+{% endblock %}
+
