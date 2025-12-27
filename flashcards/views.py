@@ -255,7 +255,14 @@ def upload_file(request):
             # Increment usage count
             profile.increment_usage()
             
-            messages.success(request, f'Successfully created {len(flashcards_data)} flashcards with semantic matching!')
+            # Create success message with details
+            image_count = len([f for f in flashcard_set.flashcards.all() if f.cropped_image]) if flashcard_set else 0
+            if image_count > 0:
+                messages.success(request, f'Successfully created {len(flashcards_data)} flashcards with {image_count} images using semantic matching!')
+            else:
+                messages.success(request, f'Successfully created {len(flashcards_data)} flashcards!')
+            
+            print(f"[SUCCESS] Flashcard generation complete: {len(flashcards_data)} cards, {image_count} with images")
             return redirect('flashcards:view_flashcards', set_id=flashcard_set.id)
         except Exception as e:
             messages.error(request, f'Error processing file: {str(e)}')
