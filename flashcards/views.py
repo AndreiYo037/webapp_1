@@ -420,8 +420,16 @@ def upload_file(request):
 
 def view_file(request, file_id):
     """View uploaded file details"""
-    file_obj = get_object_or_404(UploadedFile, id=file_id)
-    flashcard_sets = file_obj.flashcard_sets.all()
+    # Only allow access to user's own files or public files
+    if request.user.is_authenticated:
+        file_obj = get_object_or_404(UploadedFile, id=file_id, user=request.user)
+    else:
+        file_obj = get_object_or_404(UploadedFile, id=file_id, user__isnull=True)
+    # Show only user's sets if logged in, otherwise show public sets
+    if request.user.is_authenticated:
+        flashcard_sets = file_obj.flashcard_sets.filter(user=request.user)
+    else:
+        flashcard_sets = file_obj.flashcard_sets.filter(user__isnull=True)
     return render(request, 'flashcards/view_file.html', {
         'file_obj': file_obj,
         'flashcard_sets': flashcard_sets

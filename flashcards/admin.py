@@ -11,9 +11,10 @@ class UploadedFileAdmin(admin.ModelAdmin):
 
 @admin.register(FlashcardSet)
 class FlashcardSetAdmin(admin.ModelAdmin):
-    list_display = ['title', 'file', 'created_at']
-    list_filter = ['created_at']
+    list_display = ['title', 'file', 'user', 'created_at']
+    list_filter = ['created_at', 'user']
     search_fields = ['title']
+    list_select_related = ['user', 'file']
 
 
 @admin.register(Flashcard)
