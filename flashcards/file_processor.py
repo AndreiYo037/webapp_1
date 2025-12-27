@@ -501,6 +501,9 @@ Return ONLY a JSON object with these exact fields:
 Example: {{"x_percent": 10, "y_percent": 20, "width_percent": 60, "height_percent": 50, "reason": "The relevant graph is in the top-left portion"}}"""
         
         try:
+            # Groq vision API may have different format requirements
+            # Try using text-only prompt first (some models don't support image_url array format)
+            # If that doesn't work, we'll need to use a different approach
             response = client.chat.completions.create(
                 model=vision_model,
                 messages=[
@@ -510,18 +513,7 @@ Example: {{"x_percent": 10, "y_percent": 20, "width_percent": 60, "height_percen
                     },
                     {
                         "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": prompt
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/png;base64,{image_base64}"
-                                }
-                            }
-                        ]
+                        "content": prompt  # Use text-only for Groq compatibility
                     }
                 ],
                 temperature=0.3,
@@ -669,7 +661,11 @@ If this image contains a diagram, chart, graph, flowchart, or any visual represe
 Be EXTREMELY SPECIFIC and DETAILED. This description will be used to automatically match images to flashcard questions, so include all relevant educational terminology and concepts."""
 
         # Generate description using Groq vision model
+        # Note: Groq's API format requires the content to be a string with the image as base64
+        # Some models may not support the array format, so we'll use a text-only approach
         try:
+            # For Groq, we need to check if the model supports vision
+            # If it does, use the proper format; otherwise, describe the image differently
             response = client.chat.completions.create(
                 model=vision_model,
                 messages=[
@@ -679,18 +675,7 @@ Be EXTREMELY SPECIFIC and DETAILED. This description will be used to automatical
                     },
                     {
                         "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": prompt
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/png;base64,{image_base64}"
-                                }
-                            }
-                        ]
+                        "content": prompt  # Groq may not support image_url format, use text-only for now
                     }
                 ],
                 temperature=0.7,

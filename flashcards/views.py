@@ -187,18 +187,49 @@ def upload_file(request):
                                 print(f"[INFO] Single image file - assigned to all {len(flashcards_data)} flashcards")
                             else:
                                 # Multiple images - use LLM matching
-                                image_files_list = [file_upload] * len(images) if len(images) > 0 else []
-                                image_matches_list = match_images_to_flashcards(flashcards_data, image_files_list, text_content)
-                                if image_matches_list:
-                                    if not image_matches:
-                                        image_matches = {}
-                                    for q_idx, img_idx in image_matches_list:
-                                        if img_idx < len(images):
-                                            class SimpleRegion:
-                                                def __init__(self, img):
-                                                    self.image = img
-                                            image_matches[q_idx] = SimpleRegion(images[img_idx])
-                                    print(f"[SUCCESS] LLM-based matching found {len(image_matches_list)} matches")
+                                # Save PIL images temporarily for vision analysis
+                                import tempfile
+                                import os
+                                temp_image_paths = []
+                                try:
+                                    for idx, img in enumerate(images):
+                                        # Save PIL image to temporary file
+                                        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+                                        if img.mode != 'RGB':
+                                            img = img.convert('RGB')
+                                        img.save(temp_file.name, 'PNG')
+                                        temp_image_paths.append(temp_file.name)
+                                    
+                                    # Create FileUpload-like objects with temp paths for matching
+                                    class TempImageFile:
+                                        def __init__(self, path):
+                                            self.path = path
+                                            class FileObj:
+                                                def __init__(self, p):
+                                                    self.path = p
+                                            self.file = FileObj(path)
+                                    
+                                    temp_image_files = [TempImageFile(path) for path in temp_image_paths]
+                                    image_matches_list = match_images_to_flashcards(flashcards_data, temp_image_files, text_content)
+                                    
+                                    if image_matches_list:
+                                        if not image_matches:
+                                            image_matches = {}
+                                        for q_idx, img_idx in image_matches_list:
+                                            if img_idx < len(images):
+                                                class SimpleRegion:
+                                                    def __init__(self, img):
+                                                        self.image = img
+                                                image_matches[q_idx] = SimpleRegion(images[img_idx])
+                                        print(f"[SUCCESS] LLM-based matching found {len(image_matches_list)} matches")
+                                finally:
+                                    # Clean up temporary files
+                                    for temp_path in temp_image_paths:
+                                        try:
+                                            if os.path.exists(temp_path):
+                                                os.unlink(temp_path)
+                                        except Exception as cleanup_err:
+                                            print(f"[WARNING] Failed to cleanup temp file {temp_path}: {str(cleanup_err)}")
                         except Exception as llm_match_err:
                             print(f"[WARNING] LLM-based image matching failed: {str(llm_match_err)}")
                             import traceback
