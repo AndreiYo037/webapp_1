@@ -32,15 +32,15 @@ else:
     ALLOWED_HOSTS = ['*']
 
 # CSRF Trusted Origins - Required for Railway
-# Django doesn't support wildcards, so we use middleware to add dynamically
-# Or set CSRF_TRUSTED_ORIGINS environment variable with your exact Railway domain
+# Set CSRF_TRUSTED_ORIGINS environment variable with your exact Railway domain
+# Example: CSRF_TRUSTED_ORIGINS=https://web-production-db558.up.railway.app
+# Or use the middleware to add dynamically (less secure but works for Railway)
 CSRF_TRUSTED_ORIGINS_ENV = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 if CSRF_TRUSTED_ORIGINS_ENV:
     CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS_ENV.split(',') if origin.strip()]
 else:
-    # Default: Empty list - middleware will add origins dynamically
-    # For production, it's better to set CSRF_TRUSTED_ORIGINS explicitly
-    # Example: CSRF_TRUSTED_ORIGINS=https://web-production-db558.up.railway.app
+    # Default: Empty list - middleware will add origins dynamically based on requests
+    # For better security, set CSRF_TRUSTED_ORIGINS explicitly in Railway
     CSRF_TRUSTED_ORIGINS = []
 
 
