@@ -1,0 +1,29 @@
+{% extends 'flashcards/base.html' %}
+
+{% block title %}Flashcard Sets{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>All Flashcard Sets</h2>
+</div>
+
+{% if flashcard_sets %}
+<div class="grid">
+    {% for set in flashcard_sets %}
+    <div class="card">
+        <h3>{{ set.title }}</h3>
+        <p><strong>{{ set.flashcards.count }}</strong> flashcards</p>
+        <p style="color: #6c757d; font-size: 0.9em;">Created: {{ set.created_at|date:"M d, Y" }}</p>
+        <div style="margin-top: 15px;">
+            <a href="{% url 'view_flashcards' set.id %}" class="btn">View Flashcards</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <p>No flashcard sets available. <a href="{% url 'index' %}">Upload a file</a> to generate flashcards!</p>
+</div>
+{% endif %}
+{% endblock %}
+
