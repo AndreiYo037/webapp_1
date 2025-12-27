@@ -228,11 +228,17 @@ def upload_file(request):
                     try:
                         region = image_matches[idx]
                         if region and region.image:
-                            # Try to auto-crop image for the question
-                            cropped_img = auto_crop_image_for_question(file_path, card_data['question'])
+                            # The region.image is already a cropped visual region from the page
+                            # Try to further refine it using auto-crop with the question text
+                            # This will identify the most relevant part within the visual region
+                            cropped_img = auto_crop_image_for_question(region.image, card_data['question'])
                             if not cropped_img:
-                                # Use the full region image
+                                # If auto-crop fails or returns None, use the visual region image directly
+                                # This is already a cropped section of the page, not the full page
                                 cropped_img = region.image
+                                print(f"[INFO] Using visual region image directly for flashcard {idx} (auto-crop not needed or failed)")
+                            else:
+                                print(f"[INFO] Further refined visual region using auto-crop for flashcard {idx}")
                             
                             # Save cropped image
                             img_buffer = BytesIO()
@@ -246,8 +252,11 @@ def upload_file(request):
                                 ContentFile(img_buffer.read()),
                                 save=True
                             )
+                            print(f"[SUCCESS] Saved cropped image for flashcard {idx} (question: {card_data['question'][:50]}...)")
                     except Exception as crop_err:
                         print(f"[WARNING] Failed to save cropped image for flashcard {idx}: {str(crop_err)}")
+                        import traceback
+                        traceback.print_exc()
             
             file_upload.processed = True
             file_upload.save()

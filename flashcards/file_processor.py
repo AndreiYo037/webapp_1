@@ -422,10 +422,11 @@ def extract_text_from_image_ocr(file_path):
         return None
 
 
-def auto_crop_image_for_question(image_path, question_text):
+def auto_crop_image_for_question(image_input, question_text):
     """
     Automatically crop an image to show only the region relevant to a specific question
     Uses AI vision to identify the relevant region and crops it
+    Accepts either a file path (str) or a PIL Image object
     Returns cropped PIL Image or None if cropping fails
     """
     try:
@@ -447,8 +448,19 @@ def auto_crop_image_for_question(image_path, question_text):
             base_url='https://api.groq.com/openai/v1'
         )
         
-        # Open and prepare image
-        image = Image.open(image_path)
+        # Open and prepare image - handle both file path and PIL Image
+        if isinstance(image_input, Image.Image):
+            image = image_input.copy()
+        elif isinstance(image_input, str):
+            # Check if it's a valid image file
+            try:
+                image = Image.open(image_input)
+            except Exception as img_err:
+                print(f"[WARNING] Auto-crop failed: cannot identify image file '{image_input}': {str(img_err)}")
+                return None
+        else:
+            print(f"[WARNING] Auto-crop failed: invalid image input type: {type(image_input)}")
+            return None
         img_width, img_height = image.size
         
         # Convert to RGB if necessary
