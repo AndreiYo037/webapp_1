@@ -7,3 +7,19 @@ whitenoise>=6.6.0
 psycopg2-binary>=2.9.0
 dj-database-url>=2.1.0
 
+# LLM and AI features
+openai>=1.0.0
+google-generativeai>=0.3.0
+
+# Image processing and PDF features
+PyMuPDF>=1.23.0
+Pillow>=10.0.0
+pdf2image>=1.16.0
+
+# Optional but recommended for advanced features
+opencv-python>=4.8.0
+sentence-transformers>=2.2.0
+scikit-learn>=1.3.0
+pytesseract>=0.3.10
+openpyxl>=3.1.0
+
