@@ -578,9 +578,10 @@ Example: {{"x_percent": 10, "y_percent": 20, "width_percent": 60, "height_percen
         return None
 
 
-def understand_image_with_vision(file_path):
+def understand_image_with_vision(image_input):
     """
     Understand images and diagrams using vision models (Groq Vision API)
+    Accepts either a file path (str) or a PIL Image object
     Returns a description of the image including diagram analysis
     """
     try:
@@ -604,8 +605,22 @@ def understand_image_with_vision(file_path):
             base_url='https://api.groq.com/openai/v1'
         )
         
-        # Open and prepare image
-        image = Image.open(file_path)
+        # Open and prepare image - handle both file path and PIL Image
+        if isinstance(image_input, Image.Image):
+            image = image_input.copy()
+        elif isinstance(image_input, str):
+            # Check if it's a valid image file (not PDF)
+            if image_input.lower().endswith('.pdf'):
+                print(f"[WARNING] Vision analysis failed: cannot identify image file '{image_input}' (PDF files not supported)")
+                return None
+            try:
+                image = Image.open(image_input)
+            except Exception as img_err:
+                print(f"[WARNING] Vision analysis failed: cannot identify image file '{image_input}': {str(img_err)}")
+                return None
+        else:
+            print(f"[WARNING] Vision analysis failed: invalid image input type: {type(image_input)}")
+            return None
         
         # Convert to RGB if necessary
         if image.mode != 'RGB':
