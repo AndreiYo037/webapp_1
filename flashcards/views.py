@@ -23,10 +23,11 @@ except ImportError:
     stripe = None
 
 from .models import UserProfile, FileUpload, FlashcardSet, Flashcard, Subscription, EmailVerificationToken
-from .utils import process_file, generate_flashcards
+from .utils import process_file
 from .file_processor import (
     extract_all_images_from_pdf, extract_all_images_from_docx,
-    match_images_to_flashcards, auto_crop_image_for_question
+    match_images_to_flashcards, auto_crop_image_for_question,
+    generate_flashcards_from_text, calculate_flashcard_count
 )
 from .visual_region_service import VisualRegionPipeline
 import os
@@ -89,7 +90,15 @@ def upload_file(request):
         # Process file and generate flashcards with semantic matching and image generation
         try:
             text_content = process_file(file_upload)
-            flashcards_data = generate_flashcards(text_content)
+            
+            # Calculate optimal number of flashcards based on content
+            num_flashcards = calculate_flashcard_count(text_content)
+            
+            # Generate flashcards using LLM (Groq/Gemini) with fallback to rule-based
+            flashcards_data = generate_flashcards_from_text(text_content, num_flashcards)
+            
+            if not flashcards_data or len(flashcards_data) == 0:
+                raise Exception("Failed to generate flashcards. Please check your file content.")
             
             # Create flashcard set
             flashcard_set = FlashcardSet.objects.create(
