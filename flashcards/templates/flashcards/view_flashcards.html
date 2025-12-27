@@ -2,6 +2,86 @@
 
 {% block title %}{{ flashcard_set.title }} - Flashcard App{% endblock %}
 
+{% block extra_css %}
+<style>
+    .flashcard-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 400px;
+    }
+    
+    .flashcard-question {
+        flex: 0 0 auto;
+        margin-bottom: 15px;
+    }
+    
+    .flashcard-question strong {
+        color: #667eea;
+        display: block;
+        margin-bottom: 8px;
+    }
+    
+    .flashcard-question p {
+        color: #333;
+        margin: 0;
+        max-height: 120px;
+        overflow-y: auto;
+        padding-right: 5px;
+    }
+    
+    .image-container {
+        flex: 1 1 auto;
+        margin: 15px 0;
+        max-height: 200px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+    }
+    
+    .image-container img {
+        max-width: 100%;
+        max-height: 200px;
+        height: auto;
+        width: auto;
+        object-fit: contain;
+        border-radius: 4px;
+    }
+    
+    .flashcard-answer {
+        flex: 0 0 auto;
+        margin-top: 15px;
+    }
+    
+    .flashcard-answer summary {
+        cursor: pointer;
+        color: #667eea;
+        font-weight: 500;
+        padding: 8px 0;
+    }
+    
+    .flashcard-answer p {
+        margin-top: 10px;
+        padding: 10px;
+        background: #e9ecef;
+        border-radius: 4px;
+        color: #333;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .card {
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div style="margin-bottom: 30px;">
     <a href="{% url 'flashcards:index' %}" class="btn btn-secondary">← Back to Home</a>
@@ -15,22 +95,22 @@
 
 <div class="card-grid">
     {% for flashcard in flashcards %}
-    <div class="card" style="position: relative;">
-        <div style="margin-bottom: 15px;">
-            <strong style="color: #667eea;">Question {{ forloop.counter }}:</strong>
-            <p style="margin-top: 10px; color: #333;">{{ flashcard.question }}</p>
+    <div class="card flashcard-container">
+        <div class="flashcard-question">
+            <strong>Question {{ forloop.counter }}:</strong>
+            <p>{{ flashcard.question }}</p>
         </div>
         {% if flashcard.cropped_image %}
-        <div style="margin: 15px 0;">
-            <img src="{{ flashcard.cropped_image.url }}" alt="Flashcard image" style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid #ddd;">
+        <div class="image-container">
+            <img src="{{ flashcard.cropped_image.url }}" alt="Flashcard image">
         </div>
         {% endif %}
-        <details style="margin-top: 15px;">
-            <summary style="cursor: pointer; color: #667eea; font-weight: 500;">Show Answer</summary>
-            <p style="margin-top: 10px; padding: 10px; background: #e9ecef; border-radius: 4px; color: #333;">
-                {{ flashcard.answer }}
-            </p>
-        </details>
+        <div class="flashcard-answer">
+            <details>
+                <summary>Show Answer</summary>
+                <p>{{ flashcard.answer }}</p>
+            </details>
+        </div>
     </div>
     {% endfor %}
 </div>
