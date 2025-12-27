@@ -10,10 +10,18 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 from datetime import timedelta
 import json
 import hmac
 import hashlib
+try:
+    import stripe
+    STRIPE_AVAILABLE = True
+except ImportError:
+    STRIPE_AVAILABLE = False
+    stripe = None
+
 from .models import UserProfile, FileUpload, FlashcardSet, Flashcard, TestSession, Subscription, EmailVerificationToken
 from .utils import process_file, generate_flashcards
 from .email_utils import (
@@ -21,6 +29,10 @@ from .email_utils import (
     send_subscription_confirmation_email, send_subscription_cancelled_email,
     send_subscription_renewal_email
 )
+
+# Configure Stripe if available
+if STRIPE_AVAILABLE:
+    stripe.api_key = getattr(settings, 'STRIPE_SECRET_KEY', None)
 
 User = get_user_model()
 
@@ -254,43 +266,98 @@ def logout_view(request):
 
 @login_required
 def upgrade(request):
-    """Upgrade to premium subscription"""
+    """Upgrade to premium subscription with Stripe"""
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
     
-    if request.method == 'POST':
-        # In production, integrate with payment gateway (Stripe, PayPal, etc.)
-        # For now, simulate payment success
-        plan_name = request.POST.get('plan', 'premium')
-        amount = request.POST.get('amount', '9.99')
-        
-        # Create subscription (1 month)
-        subscription = Subscription.objects.create(
-            user=request.user,
-            plan_name=plan_name,
-            amount_paid=amount,
-            expires_at=timezone.now() + timedelta(days=30),
-            is_active=True,
-            status='active',
-            auto_renew=True
-        )
-        
-        # Update user profile
-        profile.is_premium = True
-        profile.premium_expires_at = subscription.expires_at
-        profile.save()
-        
-        # Send confirmation email
-        try:
-            send_subscription_confirmation_email(request.user, subscription)
-        except Exception as e:
-            messages.warning(request, f'Subscription created, but confirmation email failed: {str(e)}')
-        
-        messages.success(request, 'Thank you for upgrading to Premium! You now have unlimited flashcard generations.')
+    # Check if Stripe is configured
+    if not STRIPE_AVAILABLE:
+        messages.error(request, 'Stripe is not installed. Please install it: pip install stripe')
         return redirect('flashcards:index')
+    
+    stripe_public_key = getattr(settings, 'STRIPE_PUBLIC_KEY', None)
+    stripe_secret_key = getattr(settings, 'STRIPE_SECRET_KEY', None)
+    
+    if not stripe_public_key or not stripe_secret_key:
+        messages.error(request, 'Payment system is not configured. Please set STRIPE_PUBLIC_KEY and STRIPE_SECRET_KEY in environment variables.')
+        return redirect('flashcards:index')
+    
+    if request.method == 'POST':
+        plan = request.POST.get('plan', 'monthly')
+        
+        # Plan configurations
+        plans = {
+            'monthly': {
+                'price_id': getattr(settings, 'STRIPE_PRICE_ID_MONTHLY', None),
+                'amount': 9.99,
+                'name': 'Premium Monthly',
+                'interval': 'month'
+            }
+        }
+        
+        selected_plan = plans.get(plan, plans['monthly'])
+        
+        if not selected_plan['price_id']:
+            # Fallback: Create Checkout Session with price amount
+            try:
+                # Create Stripe Checkout Session
+                checkout_session = stripe.checkout.Session.create(
+                    customer_email=request.user.email,
+                    payment_method_types=['card'],
+                    line_items=[{
+                        'price_data': {
+                            'currency': 'usd',
+                            'product_data': {
+                                'name': selected_plan['name'],
+                                'description': 'Unlimited flashcard generations',
+                            },
+                            'unit_amount': int(selected_plan['amount'] * 100),  # Convert to cents
+                            'recurring': {
+                                'interval': selected_plan['interval'],
+                            },
+                        },
+                        'quantity': 1,
+                    }],
+                    mode='subscription',
+                    success_url=request.build_absolute_uri('/subscription/success/?session_id={CHECKOUT_SESSION_ID}'),
+                    cancel_url=request.build_absolute_uri('/subscription/cancel/'),
+                    metadata={
+                        'user_id': request.user.id,
+                        'plan': plan,
+                    },
+                )
+                
+                return redirect(checkout_session.url)
+            except Exception as e:
+                messages.error(request, f'Error creating payment session: {str(e)}')
+                return redirect('flashcards:upgrade')
+        else:
+            # Use price ID if configured
+            try:
+                checkout_session = stripe.checkout.Session.create(
+                    customer_email=request.user.email,
+                    payment_method_types=['card'],
+                    line_items=[{
+                        'price': selected_plan['price_id'],
+                        'quantity': 1,
+                    }],
+                    mode='subscription',
+                    success_url=request.build_absolute_uri('/subscription/success/?session_id={CHECKOUT_SESSION_ID}'),
+                    cancel_url=request.build_absolute_uri('/subscription/cancel/'),
+                    metadata={
+                        'user_id': request.user.id,
+                        'plan': plan,
+                    },
+                )
+                
+                return redirect(checkout_session.url)
+            except Exception as e:
+                messages.error(request, f'Error creating payment session: {str(e)}')
+                return redirect('flashcards:upgrade')
     
     return render(request, 'flashcards/upgrade.html', {
         'profile': profile,
-        'remaining': profile.get_remaining_free_generations()
+        'remaining': profile.get_remaining_free_generations(),
+        'stripe_public_key': stripe_public_key,
     })
 
 
@@ -430,61 +497,196 @@ def renew_subscription(request, subscription_id):
     })
 
 
+@login_required
+def subscription_success(request):
+    """Handle successful subscription payment"""
+    session_id = request.GET.get('session_id')
+    
+    if not session_id:
+        messages.error(request, 'Invalid session.')
+        return redirect('flashcards:index')
+    
+    try:
+        # Retrieve the Checkout Session
+        session = stripe.checkout.Session.retrieve(session_id)
+        
+        if session.payment_status == 'paid':
+            # Get or create subscription
+            stripe_subscription_id = session.subscription
+            user_id = int(session.metadata.get('user_id'))
+            user = User.objects.get(id=user_id)
+            
+            # Check if subscription already exists
+            subscription, created = Subscription.objects.get_or_create(
+                stripe_subscription_id=stripe_subscription_id,
+                defaults={
+                    'user': user,
+                    'plan_name': 'premium',
+                    'amount_paid': session.amount_total / 100,  # Convert from cents
+                    'expires_at': timezone.now() + timedelta(days=30),
+                    'is_active': True,
+                    'status': 'active',
+                    'auto_renew': True,
+                    'payment_id': session.payment_intent,
+                }
+            )
+            
+            if not created:
+                # Update existing subscription
+                subscription.is_active = True
+                subscription.status = 'active'
+                subscription.auto_renew = True
+                subscription.save()
+            
+            # Update user profile
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profile.is_premium = True
+            profile.premium_expires_at = subscription.expires_at
+            profile.save()
+            
+            # Send confirmation email
+            try:
+                send_subscription_confirmation_email(user, subscription)
+            except Exception as e:
+                messages.warning(request, f'Subscription activated, but email failed: {str(e)}')
+            
+            messages.success(request, 'Thank you for subscribing! You now have unlimited flashcard generations.')
+        else:
+            messages.warning(request, 'Payment is still processing. Please wait a moment.')
+        
+    except Exception as e:
+        messages.error(request, f'Error processing subscription: {str(e)}')
+    
+    return redirect('flashcards:account')
+
+
+@login_required
+def subscription_cancel(request):
+    """Handle cancelled subscription payment"""
+    messages.info(request, 'Subscription payment was cancelled. You can try again anytime.')
+    return redirect('flashcards:upgrade')
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def payment_webhook(request):
-    """Handle payment webhooks from payment gateway (Stripe, PayPal, etc.)"""
-    # This is a template for webhook handling
-    # In production, verify webhook signature and handle different event types
+    """Handle Stripe webhooks for subscription events"""
+    if not STRIPE_AVAILABLE:
+        return JsonResponse({'status': 'error', 'message': 'Stripe not available'}, status=400)
+    
+    webhook_secret = getattr(settings, 'STRIPE_WEBHOOK_SECRET', None)
+    payload = request.body
+    sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
     
     try:
-        payload = json.loads(request.body)
-        event_type = payload.get('type')
-        event_data = payload.get('data', {})
+        if webhook_secret and sig_header:
+            # Verify webhook signature
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, webhook_secret
+            )
+        else:
+            # For development, parse without verification
+            event_data = json.loads(payload)
+            # Create a simple event-like object
+            class Event:
+                def __init__(self, data):
+                    self.type = data.get('type')
+                    self.data = type('Data', (), {
+                        'object': data.get('data', {}).get('object', {})
+                    })()
+            event = Event(event_data)
         
-        # Example: Stripe webhook events
-        if event_type == 'customer.subscription.updated':
-            # Handle subscription update
-            subscription_id = event_data.get('object', {}).get('id')
-            customer_id = event_data.get('object', {}).get('customer')
+        # Handle the event
+        if event.type == 'checkout.session.completed':
+            session = event.data.object
+            # Subscription will be created in subscription_success view
+            pass
             
-            # Find subscription by Stripe ID
+        elif event.type == 'customer.subscription.created':
+            subscription_obj = event.data.object
+            # Find or create subscription
             try:
-                subscription = Subscription.objects.get(stripe_subscription_id=subscription_id)
-                # Update subscription based on webhook data
-                subscription.webhook_events[event_type] = payload
+                subscription = Subscription.objects.get(stripe_subscription_id=subscription_obj.id)
+                subscription.is_active = True
+                subscription.status = 'active'
                 subscription.save()
-                
-                # Renew if needed
-                if subscription.auto_renew and subscription.is_expired():
-                    subscription.renew()
-                    send_subscription_renewal_email(subscription.user, subscription)
-                
             except Subscription.DoesNotExist:
                 pass
         
-        elif event_type == 'customer.subscription.deleted':
-            # Handle subscription cancellation
-            subscription_id = event_data.get('object', {}).get('id')
+        elif event.type == 'customer.subscription.updated':
+            subscription_obj = event.data.object
             try:
-                subscription = Subscription.objects.get(stripe_subscription_id=subscription_id)
+                subscription = Subscription.objects.get(stripe_subscription_id=subscription_obj.id)
+                
+                # Update subscription status
+                if subscription_obj.status == 'active':
+                    subscription.is_active = True
+                    subscription.status = 'active'
+                    # Update expiration based on current_period_end
+                    if hasattr(subscription_obj, 'current_period_end') and subscription_obj.current_period_end:
+                        from datetime import datetime
+                        subscription.expires_at = datetime.fromtimestamp(
+                            subscription_obj.current_period_end, tz=timezone.utc
+                        )
+                elif subscription_obj.status == 'canceled':
+                    subscription.cancel()
+                
+                subscription.save()
+            except Subscription.DoesNotExist:
+                pass
+        
+        elif event.type == 'customer.subscription.deleted':
+            subscription_obj = event.data.object
+            try:
+                subscription = Subscription.objects.get(stripe_subscription_id=subscription_obj.id)
                 subscription.cancel()
                 send_subscription_cancelled_email(subscription.user, subscription)
             except Subscription.DoesNotExist:
                 pass
         
-        elif event_type == 'invoice.payment_succeeded':
-            # Handle successful payment
-            subscription_id = event_data.get('object', {}).get('subscription')
-            try:
-                subscription = Subscription.objects.get(stripe_subscription_id=subscription_id)
-                subscription.renew()
-                send_subscription_renewal_email(subscription.user, subscription)
-            except Subscription.DoesNotExist:
-                pass
+        elif event.type == 'invoice.payment_succeeded':
+            invoice = event.data.object
+            if invoice.subscription:
+                try:
+                    subscription = Subscription.objects.get(stripe_subscription_id=invoice.subscription)
+                    # Renew subscription
+                    if hasattr(invoice, 'period_end') and invoice.period_end:
+                        from datetime import datetime
+                        subscription.expires_at = datetime.fromtimestamp(
+                            invoice.period_end, tz=timezone.utc
+                        )
+                    else:
+                        subscription.renew()
+                    subscription.save()
+                    
+                    # Update user profile
+                    profile = subscription.user.profile
+                    profile.is_premium = True
+                    profile.premium_expires_at = subscription.expires_at
+                    profile.save()
+                    
+                    send_subscription_renewal_email(subscription.user, subscription)
+                except Subscription.DoesNotExist:
+                    pass
+        
+        elif event.type == 'invoice.payment_failed':
+            invoice = event.data.object
+            if invoice.subscription:
+                try:
+                    subscription = Subscription.objects.get(stripe_subscription_id=invoice.subscription)
+                    subscription.status = 'pending_renewal'
+                    subscription.save()
+                except Subscription.DoesNotExist:
+                    pass
         
         return JsonResponse({'status': 'success'})
     
+    except ValueError as e:
+        # Invalid payload
+        return JsonResponse({'status': 'error', 'message': 'Invalid payload'}, status=400)
+    except stripe.error.SignatureVerificationError as e:
+        # Invalid signature
+        return JsonResponse({'status': 'error', 'message': 'Invalid signature'}, status=400)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 

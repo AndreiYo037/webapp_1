@@ -159,8 +159,10 @@ else:
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@flashcardapp.com')
 SERVER_EMAIL = os.environ.get('SERVER_EMAIL', 'noreply@flashcardapp.com')
 
-# Payment Gateway Configuration (Optional)
-# STRIPE_PUBLIC_KEY = 'your-stripe-public-key'
-# STRIPE_SECRET_KEY = 'your-stripe-secret-key'
-# STRIPE_WEBHOOK_SECRET = 'your-webhook-secret'
+# Payment Gateway Configuration (Stripe)
+STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY', '')
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+# Optional: Use Stripe Price IDs if you create products in Stripe Dashboard
+STRIPE_PRICE_ID_MONTHLY = os.environ.get('STRIPE_PRICE_ID_MONTHLY', '')
 

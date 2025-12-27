@@ -123,19 +123,25 @@
         {% endif %}
     </div>
     {% else %}
+    {% if stripe_public_key %}
     <form method="post" style="text-align: center;">
         {% csrf_token %}
-        <input type="hidden" name="plan" value="premium">
-        <input type="hidden" name="amount" value="9.99">
+        <input type="hidden" name="plan" value="monthly">
         <button type="submit" class="btn" style="font-size: 1.2em; padding: 15px 40px;">
-            Upgrade Now - $9.99/month
+            Subscribe Now - $9.99/month
         </button>
     </form>
     
     <div style="text-align: center; margin-top: 20px; color: #6c757d; font-size: 0.9em;">
-        <p>🔒 Secure payment processing</p>
-        <p>Note: This is a demo. In production, integrate with Stripe, PayPal, or your preferred payment gateway.</p>
+        <p>🔒 Secure payment processing powered by Stripe</p>
+        <p>You'll be redirected to Stripe Checkout to complete your subscription</p>
+        <p>Cancel anytime from your account page</p>
     </div>
+    {% else %}
+    <div style="background: #f8d7da; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 30px;">
+        <p style="color: #721c24;">⚠️ Payment system is not configured. Please contact support.</p>
+    </div>
+    {% endif %}
     {% endif %}
     
     <div style="text-align: center; margin-top: 30px;">
