@@ -19,11 +19,12 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-change-in-pro
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 # ALLOWED_HOSTS - Allow Railway domains and custom domains
-if os.environ.get('ALLOWED_HOSTS'):
-    ALLOWED_HOSTS = [host.strip() for host in os.environ.get('ALLOWED_HOSTS').split(',') if host.strip()]
+ALLOWED_HOSTS_ENV = os.environ.get('ALLOWED_HOSTS', '')
+if ALLOWED_HOSTS_ENV:
+    ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_ENV.split(',') if host.strip()]
 else:
     # Default: Allow all hosts (for Railway auto-domains)
-    # In production, set ALLOWED_HOSTS environment variable with specific domains
+    # This allows any domain to access the app
     ALLOWED_HOSTS = ['*']
 
 
