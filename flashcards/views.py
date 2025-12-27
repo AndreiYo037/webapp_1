@@ -115,17 +115,30 @@ def upload_file(request):
             )
             
             # Extract images from document for semantic matching
-            file_path = file_upload.file.path
             file_extension = file_upload.get_file_extension()
             images = []
             
             try:
+                print(f"[INFO] Extracting images from {file_extension} file...")
                 if file_extension == '.pdf':
                     images = extract_all_images_from_pdf(file_path)
+                    print(f"[INFO] Extracted {len(images)} images from PDF")
                 elif file_extension in ['.docx', '.doc']:
                     images = extract_all_images_from_docx(file_path)
+                    print(f"[INFO] Extracted {len(images)} images from Word document")
+                elif file_extension in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']:
+                    # For image files, the image itself is the content
+                    from PIL import Image
+                    try:
+                        img = Image.open(file_path)
+                        images = [img]
+                        print(f"[INFO] Processing image file directly")
+                    except Exception as img_open_err:
+                        print(f"[WARNING] Failed to open image file: {str(img_open_err)}")
             except Exception as img_err:
                 print(f"[WARNING] Failed to extract images: {str(img_err)}")
+                import traceback
+                traceback.print_exc()
             
             # Use semantic matching to match images to flashcards
             image_matches = None
