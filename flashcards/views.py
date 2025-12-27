@@ -286,31 +286,26 @@ def upload_file(request):
                             # Auto-crop will identify the most relevant part within the visual region based on question
                             cropped_img = auto_crop_image_for_question(region.image, card_data['question'])
                             
-                            # Check if the region itself is too large
-                            # For visual regions detected by OpenCV, we want them to be <50% of page
-                            # For fallback full-page images, we'll allow them but try to crop them
+                            # Check if the region itself is too large (more than 50% of typical page)
+                            # If so, reject it even if auto-crop fails
                             region_width, region_height = region.image.size
                             region_area = region_width * region_height
+                            # Typical page size is around 800x1000, so 50% would be ~400,000 pixels
+                            # But we'll use a more flexible check based on the actual region
                             typical_page_area = 800 * 1000  # Reference size
-                            is_large_region = region_area > typical_page_area * 0.50
+                            if region_area > typical_page_area * 0.50:
+                                print(f"[WARNING] Visual region too large ({region_width}x{region_height}, {int(region_area/typical_page_area*100)}% of typical page) - rejecting")
+                                continue  # Skip this image, don't save it
                             
                             if not cropped_img:
-                                # If auto-crop fails or returns None
-                                if is_large_region:
-                                    # For large regions (likely full pages), try a simple center crop
-                                    # Crop to 60% of the image centered (removes some margins)
-                                    print(f"[INFO] Large region detected ({region_width}x{region_height}) - applying center crop")
-                                    crop_margin = 0.20  # Crop 20% from each side (leaves 60% center)
-                                    crop_x0 = int(region_width * crop_margin)
-                                    crop_y0 = int(region_height * crop_margin)
-                                    crop_x1 = int(region_width * (1 - crop_margin))
-                                    crop_y1 = int(region_height * (1 - crop_margin))
-                                    cropped_img = region.image.crop((crop_x0, crop_y0, crop_x1, crop_y1))
-                                    print(f"[INFO] Center-cropped large region to {crop_x1-crop_x0}x{crop_y1-crop_y0}")
-                                else:
-                                    # Small region, use directly
+                                # If auto-crop fails or returns None, check if region is acceptable size
+                                # Only use region directly if it's reasonably sized (<50% of typical page)
+                                if region_area <= typical_page_area * 0.50:
                                     cropped_img = region.image
-                                    print(f"[INFO] Using visual region image directly for flashcard {idx} (region size acceptable)")
+                                    print(f"[INFO] Using visual region image directly for flashcard {idx} (auto-crop not needed, region size acceptable)")
+                                else:
+                                    print(f"[WARNING] Visual region too large and auto-crop failed - skipping image for flashcard {idx}")
+                                    continue  # Skip this image
                             else:
                                 print(f"[INFO] Further refined visual region using auto-crop for flashcard {idx}")
                             
