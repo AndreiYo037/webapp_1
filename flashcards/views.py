@@ -23,9 +23,8 @@ except ImportError:
     stripe = None
 
 from .models import UserProfile, FileUpload, FlashcardSet, Flashcard, Subscription, EmailVerificationToken
-from .utils import process_file
 from .file_processor import (
-    extract_all_images_from_pdf, extract_all_images_from_docx,
+    extract_text_from_file, extract_all_images_from_pdf, extract_all_images_from_docx,
     match_images_to_flashcards, auto_crop_image_for_question,
     generate_flashcards_from_text, calculate_flashcard_count
 )
@@ -89,16 +88,24 @@ def upload_file(request):
         
         # Process file and generate flashcards with semantic matching and image generation
         try:
-            text_content = process_file(file_upload)
+            # Use advanced file processing that supports images, Excel, and more
+            file_path = file_upload.file.path
+            text_content = extract_text_from_file(file_path, file_upload.file_type)
+            
+            if not text_content or len(text_content.strip()) == 0:
+                raise Exception("File is empty or contains no extractable text content.")
             
             # Calculate optimal number of flashcards based on content
             num_flashcards = calculate_flashcard_count(text_content)
+            print(f"[INFO] Generating {num_flashcards} flashcards from {len(text_content)} characters of content")
             
             # Generate flashcards using LLM (Groq/Gemini) with fallback to rule-based
             flashcards_data = generate_flashcards_from_text(text_content, num_flashcards)
             
             if not flashcards_data or len(flashcards_data) == 0:
                 raise Exception("Failed to generate flashcards. Please check your file content.")
+            
+            print(f"[SUCCESS] Generated {len(flashcards_data)} flashcards")
             
             # Create flashcard set
             flashcard_set = FlashcardSet.objects.create(
@@ -123,35 +130,76 @@ def upload_file(request):
             # Use semantic matching to match images to flashcards
             image_matches = None
             if images and len(images) > 0:
+                print(f"[INFO] Attempting semantic matching for {len(images)} images with {len(flashcards_data)} flashcards...")
                 try:
-                    # Use visual region pipeline for semantic matching
-                    pipeline = VisualRegionPipeline()
-                    questions = [card['question'] for card in flashcards_data]
-                    matches = pipeline.process_document(file_path, file_upload.file_type, questions)
+                    # First try: Use visual region pipeline for advanced semantic matching (for PDF/DOCX)
+                    if file_extension in ['.pdf', '.docx', '.doc']:
+                        pipeline = VisualRegionPipeline()
+                        questions = [card['question'] for card in flashcards_data]
+                        matches = pipeline.process_document(file_path, file_upload.file_type, questions)
+                        
+                        # Create a mapping of question index to matched region
+                        image_matches = {}
+                        for q_idx, region, score in matches:
+                            if q_idx < len(flashcards_data) and region and region.image:
+                                image_matches[q_idx] = region
+                                print(f"[INFO] Matched question {q_idx} to visual region with confidence {score:.2f}")
+                        
+                        if image_matches:
+                            print(f"[SUCCESS] Semantic matching found {len(image_matches)} matches using visual region pipeline")
                     
-                    # Create a mapping of question index to matched region
-                    image_matches = {}
-                    for q_idx, region, score in matches:
-                        if q_idx < len(flashcards_data) and region.image:
-                            image_matches[q_idx] = region
+                    # Fallback/Second try: Use LLM-based image matching (works for all file types)
+                    if not image_matches or len(image_matches) < len(flashcards_data) * 0.5:
+                        print(f"[INFO] Using LLM-based image matching as {'fallback' if image_matches else 'primary'} method...")
+                        try:
+                            # Create temporary file objects for matching
+                            from .file_processor import understand_image_with_vision
+                            
+                            # For image files, use the single image for all flashcards
+                            if file_extension in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'] and len(images) == 1:
+                                # Single image file - match to all flashcards
+                                image_matches = {}
+                                for idx in range(len(flashcards_data)):
+                                    class SimpleRegion:
+                                        def __init__(self, img):
+                                            self.image = img
+                                    image_matches[idx] = SimpleRegion(images[0])
+                                print(f"[INFO] Single image file - assigned to all {len(flashcards_data)} flashcards")
+                            else:
+                                # Multiple images - use LLM matching
+                                image_files_list = [file_upload] * len(images) if len(images) > 0 else []
+                                image_matches_list = match_images_to_flashcards(flashcards_data, image_files_list, text_content)
+                                if image_matches_list:
+                                    if not image_matches:
+                                        image_matches = {}
+                                    for q_idx, img_idx in image_matches_list:
+                                        if img_idx < len(images):
+                                            class SimpleRegion:
+                                                def __init__(self, img):
+                                                    self.image = img
+                                            image_matches[q_idx] = SimpleRegion(images[img_idx])
+                                    print(f"[SUCCESS] LLM-based matching found {len(image_matches_list)} matches")
+                        except Exception as llm_match_err:
+                            print(f"[WARNING] LLM-based image matching failed: {str(llm_match_err)}")
+                            import traceback
+                            traceback.print_exc()
+                            
                 except Exception as match_err:
                     print(f"[WARNING] Semantic matching failed: {str(match_err)}")
-                    # Fallback: use simple image matching
+                    import traceback
+                    traceback.print_exc()
+                    
+                    # Final fallback: round-robin distribution
                     if images:
-                        try:
-                            image_files_list = [file_upload] * len(images)  # Create list for matching
-                            image_matches_list = match_images_to_flashcards(flashcards_data, image_files_list, text_content)
-                            if image_matches_list:
-                                image_matches = {}
-                                for q_idx, img_idx in image_matches_list:
-                                    if img_idx < len(images):
-                                        # Create a simple region-like object
-                                        class SimpleRegion:
-                                            def __init__(self, img):
-                                                self.image = img
-                                        image_matches[q_idx] = SimpleRegion(images[img_idx])
-                        except Exception as simple_match_err:
-                            print(f"[WARNING] Simple image matching also failed: {str(simple_match_err)}")
+                        print(f"[INFO] Using round-robin distribution as final fallback...")
+                        image_matches = {}
+                        for idx in range(len(flashcards_data)):
+                            img_idx = idx % len(images)
+                            class SimpleRegion:
+                                def __init__(self, img):
+                                    self.image = img
+                            image_matches[idx] = SimpleRegion(images[img_idx])
+                        print(f"[INFO] Distributed {len(images)} images to {len(flashcards_data)} flashcards using round-robin")
             
             # Create flashcards with images
             for idx, card_data in enumerate(flashcards_data):
