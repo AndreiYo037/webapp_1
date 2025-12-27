@@ -142,6 +142,8 @@ def upload_file(request):
             
             # Use semantic matching to match images to flashcards
             image_matches = None
+            all_detected_regions = []  # Store all detected visual regions for fallback
+            
             if images and len(images) > 0:
                 print(f"[INFO] Attempting semantic matching for {len(images)} images with {len(flashcards_data)} flashcards...")
                 try:
@@ -150,6 +152,9 @@ def upload_file(request):
                         pipeline = VisualRegionPipeline()
                         questions = [card['question'] for card in flashcards_data]
                         matches = pipeline.process_document(file_path, file_upload.file_type, questions)
+                        
+                        # Store all detected regions for potential fallback use
+                        all_detected_regions = [region for _, region, _ in matches if region and region.image]
                         
                         # Create a mapping of question index to matched region
                         image_matches = {}
@@ -160,6 +165,8 @@ def upload_file(request):
                         
                         if image_matches:
                             print(f"[SUCCESS] Semantic matching found {len(image_matches)} matches using visual region pipeline")
+                        elif all_detected_regions:
+                            print(f"[INFO] Visual regions detected but not matched - will use regions in fallback")
                     
                     # Fallback/Second try: Use LLM-based image matching (works for all file types)
                     if not image_matches or len(image_matches) < len(flashcards_data) * 0.5:
@@ -201,18 +208,33 @@ def upload_file(request):
                     print(f"[WARNING] Semantic matching failed: {str(match_err)}")
                     import traceback
                     traceback.print_exc()
-                    
-                    # Final fallback: round-robin distribution
-                    if images:
-                        print(f"[INFO] Using round-robin distribution as final fallback...")
-                        image_matches = {}
+                
+                # Final fallback: Use detected visual regions if available, otherwise round-robin full pages
+                if not image_matches or len(image_matches) < len(flashcards_data):
+                    if all_detected_regions and len(all_detected_regions) > 0:
+                        # Use detected visual regions (cropped sections) in round-robin
+                        print(f"[INFO] Using detected visual regions in round-robin distribution (fallback)...")
+                        if not image_matches:
+                            image_matches = {}
                         for idx in range(len(flashcards_data)):
-                            img_idx = idx % len(images)
-                            class SimpleRegion:
-                                def __init__(self, img):
-                                    self.image = img
-                            image_matches[idx] = SimpleRegion(images[img_idx])
-                        print(f"[INFO] Distributed {len(images)} images to {len(flashcards_data)} flashcards using round-robin")
+                            if idx not in image_matches:
+                                region_idx = idx % len(all_detected_regions)
+                                image_matches[idx] = all_detected_regions[region_idx]
+                        print(f"[INFO] Distributed {len(all_detected_regions)} visual regions to {len(flashcards_data)} flashcards")
+                    elif images:
+                        # Last resort: use full page images (but try to crop them)
+                        print(f"[WARNING] No visual regions detected - using full page images as last resort")
+                        print(f"[INFO] Using round-robin distribution of full pages as final fallback...")
+                        if not image_matches:
+                            image_matches = {}
+                        for idx in range(len(flashcards_data)):
+                            if idx not in image_matches:
+                                img_idx = idx % len(images)
+                                class SimpleRegion:
+                                    def __init__(self, img):
+                                        self.image = img
+                                image_matches[idx] = SimpleRegion(images[img_idx])
+                        print(f"[INFO] Distributed {len(images)} full page images to {len(flashcards_data)} flashcards using round-robin")
             
             # Create flashcards with images
             for idx, card_data in enumerate(flashcards_data):
