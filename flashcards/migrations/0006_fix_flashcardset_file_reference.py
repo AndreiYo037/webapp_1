@@ -13,12 +13,14 @@ class Migration(migrations.Migration):
 
     operations = [
         # Make the old 'file' field nullable (for backward compatibility)
+        # This allows existing records to work while we transition to file_upload
         migrations.AlterField(
             model_name='flashcardset',
             name='file',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='flashcard_sets_old', to='flashcards.uploadedfile'),
         ),
         # Make 'file_upload' required (NOT NULL) since it's the primary field now
+        # For fresh databases on Railway, this will work fine
         migrations.AlterField(
             model_name='flashcardset',
             name='file_upload',

@@ -83,11 +83,11 @@ class Migration(migrations.Migration):
                 'ordering': ['-uploaded_at'],
             },
         ),
-        # Add file_upload field to FlashcardSet (nullable for existing records)
+        # Add file_upload field to FlashcardSet (nullable initially, will be made required in next migration)
         migrations.AddField(
             model_name='flashcardset',
             name='file_upload',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='flashcard_sets', to='flashcards.fileupload'),
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='flashcard_sets_temp', to='flashcards.fileupload'),
         ),
     ]
 
