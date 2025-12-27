@@ -250,15 +250,31 @@ def upload_file(request):
                     try:
                         region = image_matches[idx]
                         if region and region.image:
+                            # CRITICAL: Always try to auto-crop to get the most specific visual element
                             # The region.image is already a cropped visual region from the page
-                            # Try to further refine it using auto-crop with the question text
-                            # This will identify the most relevant part within the visual region
+                            # Auto-crop will identify the most relevant part within the visual region based on question
                             cropped_img = auto_crop_image_for_question(region.image, card_data['question'])
+                            
+                            # Check if the region itself is too large (more than 50% of typical page)
+                            # If so, reject it even if auto-crop fails
+                            region_width, region_height = region.image.size
+                            region_area = region_width * region_height
+                            # Typical page size is around 800x1000, so 50% would be ~400,000 pixels
+                            # But we'll use a more flexible check based on the actual region
+                            typical_page_area = 800 * 1000  # Reference size
+                            if region_area > typical_page_area * 0.50:
+                                print(f"[WARNING] Visual region too large ({region_width}x{region_height}, {int(region_area/typical_page_area*100)}% of typical page) - rejecting")
+                                continue  # Skip this image, don't save it
+                            
                             if not cropped_img:
-                                # If auto-crop fails or returns None, use the visual region image directly
-                                # This is already a cropped section of the page, not the full page
-                                cropped_img = region.image
-                                print(f"[INFO] Using visual region image directly for flashcard {idx} (auto-crop not needed or failed)")
+                                # If auto-crop fails or returns None, check if region is acceptable size
+                                # Only use region directly if it's reasonably sized (<50% of typical page)
+                                if region_area <= typical_page_area * 0.50:
+                                    cropped_img = region.image
+                                    print(f"[INFO] Using visual region image directly for flashcard {idx} (auto-crop not needed, region size acceptable)")
+                                else:
+                                    print(f"[WARNING] Visual region too large and auto-crop failed - skipping image for flashcard {idx}")
+                                    continue  # Skip this image
                             else:
                                 print(f"[INFO] Further refined visual region using auto-crop for flashcard {idx}")
                             

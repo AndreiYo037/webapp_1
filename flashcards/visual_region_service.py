@@ -48,6 +48,7 @@ class VisualRegionDetector:
     def __init__(self):
         self.min_region_area = 3000  # Lowered from 5000 to detect smaller visual regions
         self.aspect_ratio_range = (0.2, 5.0)  # More permissive aspect ratios to catch more regions
+        self.max_region_area_ratio = 0.50  # Maximum 50% of page area (stricter than before)
     
     def detect_regions_in_pdf(self, file_path: str) -> List[VisualRegion]:
         """Detect visual regions in a PDF document"""
@@ -170,10 +171,11 @@ class VisualRegionDetector:
                     if area < self.min_region_area:
                         continue
                     
-                    # CRITICAL: Reject contours that are too large (likely entire page)
+                    # CRITICAL: Reject contours that are too large (likely entire page or large sections)
+                    # STRICT: Reject if covering more than 50% of page (reduced from 80%)
                     region_ratio = area / page_area if page_area > 0 else 0
-                    if region_ratio > 0.80:
-                        print(f"[DEBUG] Rejected contour covering {region_ratio*100:.1f}% of page")
+                    if region_ratio > 0.50:  # Reduced from 0.80 to 0.50
+                        print(f"[DEBUG] Rejected contour covering {region_ratio*100:.1f}% of page (max 50% allowed)")
                         continue
                     
                     # Check aspect ratio
@@ -240,10 +242,11 @@ class VisualRegionDetector:
                 if area < self.min_region_area:
                     continue
                 
-                # CRITICAL: Reject contours that are too large (likely entire page)
+                # CRITICAL: Reject contours that are too large (likely entire page or large sections)
+                # STRICT: Reject if covering more than 50% of page (reduced from 80%)
                 region_ratio = area / page_area if page_area > 0 else 0
-                if region_ratio > 0.80:
-                    print(f"[DEBUG] Rejected table contour covering {region_ratio*100:.1f}% of page")
+                if region_ratio > 0.50:  # Reduced from 0.80 to 0.50
+                    print(f"[DEBUG] Rejected table contour covering {region_ratio*100:.1f}% of page (max 50% allowed)")
                     continue
                 
                 bbox = (x, y, x + w, y + h)
@@ -281,22 +284,23 @@ class VisualRegionDetector:
         if width <= 0 or height <= 0:
             return None
         
-        # CRITICAL: Reject regions that are too large (likely entire page)
-        # Reject if region covers more than 80% of page area
+        # CRITICAL: Reject regions that are too large (likely entire page or large sections)
+        # STRICT: Reject if region covers more than 50% of page area (reduced from 80%)
+        # This ensures we only get specific visual elements, not large sections with multiple graphs
         page_area = page_image.width * page_image.height
         region_area = width * height
         region_ratio = region_area / page_area if page_area > 0 else 0
         
-        if region_ratio > 0.80:
-            print(f"[DEBUG] Rejected region covering {region_ratio*100:.1f}% of page (too large, likely entire page)")
+        if region_ratio > 0.50:  # Reduced from 0.80 to 0.50 (50% max)
+            print(f"[DEBUG] Rejected region covering {region_ratio*100:.1f}% of page (too large, max 50% allowed)")
             return None
         
-        # Also reject if region is very close to page dimensions (within 5% margin)
+        # Also reject if region is very close to page dimensions (within 10% margin, stricter than before)
         width_ratio = width / page_image.width if page_image.width > 0 else 0
         height_ratio = height / page_image.height if page_image.height > 0 else 0
         
-        if width_ratio > 0.95 and height_ratio > 0.95:
-            print(f"[DEBUG] Rejected region with dimensions {width}x{height} (too close to page size {page_image.width}x{page_image.height})")
+        if width_ratio > 0.90 or height_ratio > 0.90:  # Stricter: reject if >90% in either dimension
+            print(f"[DEBUG] Rejected region with dimensions {width}x{height} (width: {width_ratio*100:.1f}%, height: {height_ratio*100:.1f}% of page - too large)")
             return None
         
         # Crop the region
@@ -361,8 +365,22 @@ class VisualRegionDetector:
                 print(f"[WARNING] Error checking if region is blank: {str(e)}")
             
             # Calculate confidence based on region characteristics
+            # Prefer smaller, more specific regions (inverse relationship with size)
+            # Smaller regions that are well-matched get higher confidence
             area = width * height
-            confidence = min(1.0, area / (page_image.width * page_image.height * 0.3))  # Max confidence if >30% of page
+            page_area = page_image.width * page_image.height
+            area_ratio = area / page_area if page_area > 0 else 0
+            
+            # Confidence calculation: prefer regions that are 10-30% of page (sweet spot)
+            # Too small (<5%) or too large (>40%) get lower confidence
+            if area_ratio < 0.05:
+                confidence = 0.3 + (area_ratio / 0.05) * 0.2  # 0.3-0.5 for very small regions
+            elif area_ratio <= 0.30:
+                # Sweet spot: 5-30% of page gets high confidence
+                confidence = 0.5 + (area_ratio / 0.30) * 0.5  # 0.5-1.0
+            else:
+                # Larger regions (30-50%) get lower confidence
+                confidence = 1.0 - ((area_ratio - 0.30) / 0.20) * 0.4  # 1.0-0.6
             
             region = VisualRegion(
                 bbox=(x0, y0, x1, y1),
@@ -714,7 +732,9 @@ class VisualRegionPipeline:
             # Try semantic matching on the (possibly limited) regions
             # Match regions to questions with comprehensive error handling
             try:
-                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.25)
+                    # Use higher confidence threshold for better quality matches
+                    # This ensures only well-matched, specific visual regions are used
+                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.30)
             except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
                 print(f"[ERROR] Memory/runtime error during matching: {type(mem_err).__name__}: {str(mem_err)}")
                 print("[INFO] No images will be displayed - semantic matching failed")

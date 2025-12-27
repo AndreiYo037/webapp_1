@@ -559,17 +559,21 @@ Example: {{"x_percent": 10, "y_percent": 20, "width_percent": 60, "height_percen
                 height = min(img_height - y, height + (2 * padding_y))
                 
                 if width > 0 and height > 0:
-                    # Only crop if the region is significantly smaller than the full image (at least 20% smaller)
+                    # STRICT: Only crop if the region is significantly smaller than the full image
+                    # Require at least 40% reduction (region must be <60% of original)
+                    # This ensures we get specific visual elements, not large sections
                     crop_area = width * height
                     full_area = img_width * img_height
-                    if crop_area < full_area * 0.8:  # Only crop if region is less than 80% of full image
+                    crop_ratio = crop_area / full_area if full_area > 0 else 1.0
+                    
+                    if crop_ratio < 0.60:  # Stricter: only crop if region is less than 60% of image (was 80%)
                         # Crop the image
                         cropped = image.crop((x, y, x + width, y + height))
-                        print(f"[INFO] Auto-cropped image: region at ({x}, {y}) size {width}x{height} ({int(crop_area/full_area*100)}% of original), reason: {crop_data.get('reason', 'N/A')}")
+                        print(f"[INFO] Auto-cropped image: region at ({x}, {y}) size {width}x{height} ({int(crop_ratio*100)}% of original), reason: {crop_data.get('reason', 'N/A')}")
                         return cropped
                     else:
-                        print(f"[INFO] Identified region is too large ({int(crop_area/full_area*100)}% of image), using full image")
-                        return None  # Return None to indicate no cropping needed
+                        print(f"[WARNING] Identified region is too large ({int(crop_ratio*100)}% of image, max 60% allowed) - rejecting crop")
+                        return None  # Return None to indicate region is too large, don't use it
                 else:
                     print("[WARNING] Invalid crop dimensions, skipping crop")
                     return None
