@@ -1,4 +1,6 @@
 # Migration to add image fields to Flashcard model
+# Note: cropped_image already exists from migration 0003
+# This migration is a no-op for fresh databases, but ensures consistency
 
 from django.db import migrations, models
 import django.db.models.deletion
@@ -11,14 +13,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Add cropped_image field (source_image already exists from migration 0002)
-        migrations.AddField(
-            model_name='flashcard',
-            name='cropped_image',
-            field=models.ImageField(blank=True, null=True, upload_to='flashcard_crops/'),
-        ),
-        # Note: source_image field already exists from migration 0002_flashcard_source_image
-        # It references 'flashcards.uploadedfile', but we now use 'flashcards.fileupload'
-        # For fresh databases, this is fine as migrations run sequentially
+        # Note: cropped_image field already exists from migration 0003_flashcard_cropped_image
+        # source_image field already exists from migration 0002_flashcard_source_image
+        # This migration is intentionally empty to maintain migration sequence
+        # For fresh databases, all fields will be created by previous migrations
     ]
 
