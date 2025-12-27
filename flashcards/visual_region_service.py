@@ -11,11 +11,21 @@ import numpy as np
 from django.conf import settings
 
 # Try to import optional dependencies
+# OpenCV is REQUIRED for visual region detection
 try:
     import cv2
+    # Verify OpenCV is actually working by checking version
+    cv2_version = cv2.__version__
     CV2_AVAILABLE = True
-except ImportError:
+    print(f"[INFO] OpenCV {cv2_version} is available and ready for visual region detection")
+except ImportError as e:
     CV2_AVAILABLE = False
+    print(f"[ERROR] OpenCV not available - visual region detection will fail!")
+    print(f"[ERROR] Import error: {str(e)}")
+    print(f"[ERROR] Install with: pip install opencv-python-headless")
+except Exception as e:
+    CV2_AVAILABLE = False
+    print(f"[ERROR] OpenCV import failed: {str(e)}")
 
 try:
     from sentence_transformers import SentenceTransformer
