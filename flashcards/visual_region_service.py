@@ -62,6 +62,11 @@ class VisualRegionDetector:
     
     def detect_regions_in_pdf(self, file_path: str) -> List[VisualRegion]:
         """Detect visual regions in a PDF document"""
+        if not CV2_AVAILABLE:
+            print("[ERROR] OpenCV is required for visual region detection but is not available!")
+            print("[ERROR] Please ensure opencv-python-headless is installed: pip install opencv-python-headless")
+            return []
+        
         regions = []
         try:
             import fitz  # PyMuPDF
