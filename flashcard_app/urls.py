@@ -16,3 +16,4 @@ if settings.DEBUG:
     if hasattr(settings, 'STATIC_ROOT') and settings.STATIC_ROOT:
         urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
+

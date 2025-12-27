@@ -29,3 +29,4 @@ ALLOWED_HOSTS=web-production-db558.up.railway.app
 
 But using `*` is simpler and works for all Railway domains.
 
+

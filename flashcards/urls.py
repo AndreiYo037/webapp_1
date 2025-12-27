@@ -22,8 +22,5 @@ urlpatterns = [
     path('webhook/payment/', views.payment_webhook, name='payment_webhook'),
     path('upload/', views.upload_file, name='upload_file'),
     path('set/<int:set_id>/', views.view_flashcards, name='view_flashcards'),
-    path('set/<int:set_id>/test/', views.start_test, name='start_test'),
-    path('set/<int:set_id>/submit/', views.submit_test, name='submit_test'),
-    path('results/<int:session_id>/', views.test_results, name='test_results'),
 ]
 

@@ -22,8 +22,17 @@ except ImportError:
     STRIPE_AVAILABLE = False
     stripe = None
 
-from .models import UserProfile, FileUpload, FlashcardSet, Flashcard, TestSession, Subscription, EmailVerificationToken
+from .models import UserProfile, FileUpload, FlashcardSet, Flashcard, Subscription, EmailVerificationToken
 from .utils import process_file, generate_flashcards
+from .file_processor import (
+    extract_all_images_from_pdf, extract_all_images_from_docx,
+    match_images_to_flashcards, auto_crop_image_for_question
+)
+from .visual_region_service import VisualRegionPipeline
+import os
+from PIL import Image
+from io import BytesIO
+from django.core.files.base import ContentFile
 from .email_utils import (
     send_verification_email, send_password_reset_email, 
     send_subscription_confirmation_email, send_subscription_cancelled_email,
@@ -77,7 +86,7 @@ def upload_file(request):
             file_type=uploaded_file.content_type or 'unknown'
         )
         
-        # Process file and generate flashcards
+        # Process file and generate flashcards with semantic matching and image generation
         try:
             text_content = process_file(file_upload)
             flashcards_data = generate_flashcards(text_content)
@@ -89,13 +98,86 @@ def upload_file(request):
                 title=uploaded_file.name
             )
             
-            # Create flashcards
-            for card_data in flashcards_data:
-                Flashcard.objects.create(
+            # Extract images from document for semantic matching
+            file_path = file_upload.file.path
+            file_extension = file_upload.get_file_extension()
+            images = []
+            
+            try:
+                if file_extension == '.pdf':
+                    images = extract_all_images_from_pdf(file_path)
+                elif file_extension in ['.docx', '.doc']:
+                    images = extract_all_images_from_docx(file_path)
+            except Exception as img_err:
+                print(f"[WARNING] Failed to extract images: {str(img_err)}")
+            
+            # Use semantic matching to match images to flashcards
+            image_matches = None
+            if images and len(images) > 0:
+                try:
+                    # Use visual region pipeline for semantic matching
+                    pipeline = VisualRegionPipeline()
+                    questions = [card['question'] for card in flashcards_data]
+                    matches = pipeline.process_document(file_path, file_upload.file_type, questions)
+                    
+                    # Create a mapping of question index to matched region
+                    image_matches = {}
+                    for q_idx, region, score in matches:
+                        if q_idx < len(flashcards_data) and region.image:
+                            image_matches[q_idx] = region
+                except Exception as match_err:
+                    print(f"[WARNING] Semantic matching failed: {str(match_err)}")
+                    # Fallback: use simple image matching
+                    if images:
+                        try:
+                            image_files_list = [file_upload] * len(images)  # Create list for matching
+                            image_matches_list = match_images_to_flashcards(flashcards_data, image_files_list, text_content)
+                            if image_matches_list:
+                                image_matches = {}
+                                for q_idx, img_idx in image_matches_list:
+                                    if img_idx < len(images):
+                                        # Create a simple region-like object
+                                        class SimpleRegion:
+                                            def __init__(self, img):
+                                                self.image = img
+                                        image_matches[q_idx] = SimpleRegion(images[img_idx])
+                        except Exception as simple_match_err:
+                            print(f"[WARNING] Simple image matching also failed: {str(simple_match_err)}")
+            
+            # Create flashcards with images
+            for idx, card_data in enumerate(flashcards_data):
+                flashcard = Flashcard.objects.create(
                     flashcard_set=flashcard_set,
                     question=card_data['question'],
-                    answer=card_data['answer']
+                    answer=card_data['answer'],
+                    source_image=file_upload if images else None
                 )
+                
+                # Add cropped image if matched
+                if image_matches and idx in image_matches:
+                    try:
+                        region = image_matches[idx]
+                        if region and region.image:
+                            # Try to auto-crop image for the question
+                            cropped_img = auto_crop_image_for_question(file_path, card_data['question'])
+                            if not cropped_img:
+                                # Use the full region image
+                                cropped_img = region.image
+                            
+                            # Save cropped image
+                            img_buffer = BytesIO()
+                            if cropped_img.mode != 'RGB':
+                                cropped_img = cropped_img.convert('RGB')
+                            cropped_img.save(img_buffer, format='PNG')
+                            img_buffer.seek(0)
+                            
+                            flashcard.cropped_image.save(
+                                f'crop_{flashcard.id}.png',
+                                ContentFile(img_buffer.read()),
+                                save=True
+                            )
+                    except Exception as crop_err:
+                        print(f"[WARNING] Failed to save cropped image for flashcard {idx}: {str(crop_err)}")
             
             file_upload.processed = True
             file_upload.save()
@@ -103,10 +185,12 @@ def upload_file(request):
             # Increment usage count
             profile.increment_usage()
             
-            messages.success(request, f'Successfully created {len(flashcards_data)} flashcards!')
+            messages.success(request, f'Successfully created {len(flashcards_data)} flashcards with semantic matching!')
             return redirect('flashcards:view_flashcards', set_id=flashcard_set.id)
         except Exception as e:
             messages.error(request, f'Error processing file: {str(e)}')
+            import traceback
+            print(f"[ERROR] Upload error: {traceback.format_exc()}")
             return redirect('flashcards:index')
     
     return redirect('flashcards:index')
@@ -120,84 +204,6 @@ def view_flashcards(request, set_id):
     return render(request, 'flashcards/view_flashcards.html', {
         'flashcard_set': flashcard_set,
         'flashcards': flashcards
-    })
-
-
-@login_required
-def start_test(request, set_id):
-    """Start a new test session"""
-    flashcard_set = get_object_or_404(FlashcardSet, id=set_id, user=request.user)
-    flashcards = list(flashcard_set.flashcards.all())
-    
-    if not flashcards:
-        messages.error(request, 'No flashcards available for this set')
-        return redirect('flashcards:view_flashcards', set_id=set_id)
-    
-    # Create test session
-    test_session = TestSession.objects.create(
-        flashcard_set=flashcard_set,
-        total_questions=len(flashcards)
-    )
-    
-    return render(request, 'flashcards/test.html', {
-        'flashcard_set': flashcard_set,
-        'flashcards': flashcards,
-        'test_session': test_session
-    })
-
-
-@require_http_methods(["POST"])
-def submit_test(request, set_id):
-    """Submit test results"""
-    test_session_id = request.POST.get('test_session_id')
-    test_session = get_object_or_404(TestSession, id=test_session_id)
-    flashcard_set = get_object_or_404(FlashcardSet, id=set_id)
-    
-    # Get all flashcards for this set
-    flashcards = flashcard_set.flashcards.all()
-    score = 0
-    
-    # Calculate score by checking each answer
-    for flashcard in flashcards:
-        answer_key = f'answer_{flashcard.id}'
-        user_answer = request.POST.get(answer_key, '').strip()
-        
-        if user_answer:
-            # Simple keyword matching - in production, you'd want more sophisticated comparison
-            # Check if user answer contains key parts of correct answer or vice versa
-            user_lower = user_answer.lower()
-            correct_lower = flashcard.answer.lower()
-            
-            # More lenient matching: check for significant word overlap
-            user_words = set(user_lower.split())
-            correct_words = set(correct_lower.split())
-            
-            # Remove common words
-            common_words = {'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'to', 'of', 'and', 'or', 'but', 'in', 'on', 'at', 'for', 'with', 'by'}
-            user_words = user_words - common_words
-            correct_words = correct_words - common_words
-            
-            # If there's significant overlap (at least 30% of words match) or substring match
-            if user_words and correct_words:
-                overlap = len(user_words & correct_words)
-                match_ratio = overlap / max(len(user_words), len(correct_words))
-                if match_ratio >= 0.3 or user_lower in correct_lower or correct_lower in user_lower:
-                    score += 1
-    
-    test_session.score = score
-    test_session.completed_at = timezone.now()
-    test_session.save()
-    
-    # Redirect to results page
-    return redirect('flashcards:test_results', session_id=test_session.id)
-
-
-@login_required
-def test_results(request, session_id):
-    """View test results"""
-    test_session = get_object_or_404(TestSession, id=session_id, flashcard_set__user=request.user)
-    return render(request, 'flashcards/test_results.html', {
-        'test_session': test_session
     })
 
 

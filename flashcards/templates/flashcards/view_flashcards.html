@@ -5,7 +5,6 @@
 {% block content %}
 <div style="margin-bottom: 30px;">
     <a href="{% url 'flashcards:index' %}" class="btn btn-secondary">← Back to Home</a>
-    <a href="{% url 'flashcards:start_test' flashcard_set.id %}" class="btn" style="background: #28a745; float: right;">Start Test</a>
 </div>
 
 <h2>{{ flashcard_set.title }}</h2>
@@ -21,6 +20,11 @@
             <strong style="color: #667eea;">Question {{ forloop.counter }}:</strong>
             <p style="margin-top: 10px; color: #333;">{{ flashcard.question }}</p>
         </div>
+        {% if flashcard.cropped_image %}
+        <div style="margin: 15px 0;">
+            <img src="{{ flashcard.cropped_image.url }}" alt="Flashcard image" style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid #ddd;">
+        </div>
+        {% endif %}
         <details style="margin-top: 15px;">
             <summary style="cursor: pointer; color: #667eea; font-weight: 500;">Show Answer</summary>
             <p style="margin-top: 10px; padding: 10px; background: #e9ecef; border-radius: 4px; color: #333;">

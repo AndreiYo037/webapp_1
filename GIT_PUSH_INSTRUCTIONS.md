@@ -94,3 +94,4 @@ git commit --amend --reset-author --no-edit
 
 **Important**: Make sure to set environment variables in Railway dashboard, not in code!
 
+

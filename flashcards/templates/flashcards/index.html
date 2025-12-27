@@ -62,7 +62,6 @@
             <p><strong>Cards:</strong> {{ set.flashcards.count }}</p>
             <div style="margin-top: 15px;">
                 <a href="{% url 'flashcards:view_flashcards' set.id %}" class="btn">View Cards</a>
-                <a href="{% url 'flashcards:start_test' set.id %}" class="btn" style="background: #28a745;">Start Test</a>
             </div>
         </div>
         {% endfor %}

@@ -109,6 +109,8 @@ class Flashcard(models.Model):
     flashcard_set = models.ForeignKey(FlashcardSet, on_delete=models.CASCADE, related_name='flashcards')
     question = models.TextField()
     answer = models.TextField()
+    source_image = models.ForeignKey('FileUpload', on_delete=models.SET_NULL, blank=True, null=True, related_name='flashcards')
+    cropped_image = models.ImageField(upload_to='flashcard_crops/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
