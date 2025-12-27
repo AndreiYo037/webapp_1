@@ -157,8 +157,14 @@ def match_images_to_flashcards(flashcards_data, image_files_list, text_content):
         image_descriptions = []
         for idx, image_file in enumerate(image_files_list):
             try:
+                # Handle both FileUpload objects and temporary file objects
                 if hasattr(image_file, 'file') and image_file.file:
                     image_path = image_file.file.path
+                    # Check if it's a PDF (shouldn't happen, but be safe)
+                    if image_path.lower().endswith('.pdf'):
+                        print(f"[WARNING] Skipping PDF file in vision analysis: {image_path}")
+                        image_descriptions.append(f"Image {idx+1}: [PDF file - cannot analyze]")
+                        continue
                     description = understand_image_with_vision(image_path)
                     if description:
                         # Truncate description for prompt
