@@ -501,24 +501,11 @@ Return ONLY a JSON object with these exact fields:
 Example: {{"x_percent": 10, "y_percent": 20, "width_percent": 60, "height_percent": 50, "reason": "The relevant graph is in the top-left portion"}}"""
         
         try:
-            # Groq vision API may have different format requirements
-            # Try using text-only prompt first (some models don't support image_url array format)
-            # If that doesn't work, we'll need to use a different approach
-            response = client.chat.completions.create(
-                model=vision_model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are an expert at analyzing images and identifying specific regions. You always return valid JSON with x_percent, y_percent, width_percent, height_percent, and reason fields."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt  # Use text-only for Groq compatibility
-                    }
-                ],
-                temperature=0.3,
-                max_tokens=500
-            )
+            # For now, skip auto-crop with Groq vision API due to format compatibility issues
+            # The visual regions are already cropped from the page, so we can use them directly
+            # TODO: Implement proper Groq vision API format when vision models support it
+            print("[INFO] Auto-crop with Groq vision API temporarily disabled - using visual region directly")
+            return None  # Return None to use the visual region image directly
             
             content = response.choices[0].message.content.strip()
             
