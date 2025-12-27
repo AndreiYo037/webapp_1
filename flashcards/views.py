@@ -210,8 +210,9 @@ def register(request):
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            # Create user profile
-            profile = UserProfile.objects.create(user=user)
+            # UserProfile is automatically created by signal
+            # Get the profile that was just created
+            profile = user.profile
             # Send verification email if email is provided
             if user.email:
                 try:
