@@ -73,14 +73,12 @@ class VisualRegionDetector:
             
             doc = fitz.open(file_path)
             
-            print(f"[INFO] Processing all {len(doc)} pages for visual region detection...")
-            
+            print(f"[INFO] Processing {len(doc)} pages for visual region detection...")
             for page_num in range(len(doc)):
                 page = doc[page_num]
                 
-                # Optimized: Reduce image quality for faster processing (1.5x instead of 2x zoom)
-                # Still provides good quality while reducing memory and processing time
-                pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5))  # 1.5x zoom for faster processing
+                # Get page as image for processing
+                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better quality
                 img_data = pix.tobytes("png")
                 page_image = Image.open(io.BytesIO(img_data))
                 
@@ -521,11 +519,11 @@ class SemanticMatcher:
             return []
         
         try:
-            # Optimized: Process regions for faster runtime while maintaining quality
-            # Set to 50 for good balance between coverage and performance
-            MAX_SAFE_PROCESSING = 50  # Optimized for speed: balance between quality and runtime
+            # Process more regions to have a larger database of images to select from
+            # Increased limit to 60 regions for better coverage and more matching options
+            MAX_SAFE_PROCESSING = 60  # Increased from 30 to 60 for larger image database
             if len(regions) > MAX_SAFE_PROCESSING:
-                print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for faster matching")
+                print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for comprehensive matching")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
                 # Sort by confidence and take top regions for better quality
                 regions = sorted(regions, key=lambda r: r.confidence, reverse=True)[:MAX_SAFE_PROCESSING]
@@ -548,22 +546,22 @@ class SemanticMatcher:
             print(f"[INFO] Generating embeddings for {len(questions)} questions and {len(region_texts)} regions...")
             try:
                 # Process questions first (usually small number)
-                # Optimized: Use larger batch size for faster processing
-                question_embeddings = self.generate_embeddings(questions, batch_size=32)
+                # Increased batch size to 16 for faster processing
+                question_embeddings = self.generate_embeddings(questions, batch_size=16)
                 if question_embeddings is None:
                     raise Exception("Failed to generate question embeddings")
                 
                 # Process regions with optimized batch size for faster runtime
-                # Optimized: Use larger batches for faster processing (regions now limited to 35)
-                if len(region_texts) > 25:
-                    # For larger numbers, use larger batches for speed
-                    region_batch_size = 20
-                elif len(region_texts) > 15:
-                    # For medium numbers, use larger batches
-                    region_batch_size = 24
+                # Use larger batches for faster processing (regions now limited to 60)
+                if len(region_texts) > 40:
+                    # For very large numbers, use medium batches
+                    region_batch_size = 10
+                elif len(region_texts) > 20:
+                    # For larger numbers, use medium batches
+                    region_batch_size = 12
                 else:
-                    # For smaller numbers, use maximum batch size for speed
-                    region_batch_size = 32
+                    # For smaller numbers, use larger batches for speed
+                    region_batch_size = 16
                 
                 print(f"[INFO] Processing {len(region_texts)} regions with batch size {region_batch_size} (estimated {len(region_texts) // region_batch_size + 1} batches)")
                 region_embeddings = self.generate_embeddings(region_texts, batch_size=region_batch_size)
@@ -623,18 +621,8 @@ class SemanticMatcher:
                 else:
                     print(f"[DEBUG] Top 10 similarity scores: {[f'{s:.3f}' for s in sorted(max_scores, reverse=True)[:10]]}")
             
-            # Optimized: Early stopping - if we have enough good matches, stop processing
-            # This reduces runtime when we find high-quality matches early
-            TARGET_MATCHES = min(len(questions), 10)  # Aim for up to 10 matches or all questions
-            matches_found = 0
-            
             # Sort by similarity score (highest first)
             for q_idx in range(len(questions)):
-                # Early stopping: if we have enough matches, skip remaining questions
-                if matches_found >= TARGET_MATCHES:
-                    print(f"[INFO] Early stopping: Found {matches_found} good matches (target: {TARGET_MATCHES})")
-                    break
-                
                 best_region_idx = -1
                 best_score = min_confidence
                 
@@ -650,7 +638,6 @@ class SemanticMatcher:
                 if best_region_idx >= 0:
                     matches.append((q_idx, best_region_idx, best_score))
                     used_regions.add(best_region_idx)
-                    matches_found += 1
                     print(f"[DEBUG] Matched question {q_idx+1} to region {best_region_idx+1} (score: {best_score:.3f})")
             
             if not matches:
@@ -752,11 +739,11 @@ class VisualRegionPipeline:
             
             print(f"[INFO] Detected {len(regions)} visual regions")
             
-            # Optimized: Process regions for faster runtime while maintaining quality
-            # Set to 50 for good balance between coverage and performance
-            MAX_SAFE_PROCESSING = 50  # Optimized for speed: balance between quality and runtime
+            # Process more regions to have a larger database of images to select from
+            # Increased limit to 60 regions for better coverage and more matching options
+            MAX_SAFE_PROCESSING = 60  # Increased from 30 to 60 for larger image database
             if len(regions) > MAX_SAFE_PROCESSING:
-                print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for faster matching")
+                print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for comprehensive matching")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
                 # Sort by confidence and take top regions for better quality
                 regions = sorted(regions, key=lambda r: r.confidence, reverse=True)[:MAX_SAFE_PROCESSING]

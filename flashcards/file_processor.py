@@ -1118,8 +1118,8 @@ Generate ONLY concise flashcards with summarized answers (up to 150 words) using
                 {"role": "system", "content": "You are an expert educational content creator. You create CONCISE flashcards with summarized answers (up to 150 words) containing key points. CRITICAL: You MUST ONLY use information from the provided text document - NEVER use external knowledge or general information. You NEVER create simple vocabulary tests or one-word answers. Answers should be concise but informative, based ONLY on the provided text. You always return valid JSON."},
                 {"role": "user", "content": prompt}
             ],
-                temperature=0.7,  # Optimized: Lower temperature for faster, more focused generation
-                max_tokens=3000  # Optimized: Reduced from 4000 for faster processing
+                temperature=0.9,  # Higher temperature for more creative, comprehensive questions
+                max_tokens=4000  # Increased further to allow for very detailed answers
             )
         except Exception as api_error:
             # Re-raise to be caught by outer exception handler with better context
