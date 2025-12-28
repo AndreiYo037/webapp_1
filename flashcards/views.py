@@ -86,6 +86,9 @@ def upload_file(request):
             file_type=uploaded_file.content_type or 'unknown'
         )
         
+        # Track if flashcard_set was created (for cleanup on error)
+        flashcard_set = None
+        
         # Process file and generate flashcards with semantic matching and image generation
         try:
             # Use advanced file processing that supports images, Excel, and more
@@ -327,9 +330,6 @@ def upload_file(request):
             file_upload.processed = True
             file_upload.save()
             
-            # Increment usage count
-            profile.increment_usage()
-            
             # Create success message with details
             image_count = len([f for f in flashcard_set.flashcards.all() if f.cropped_image]) if flashcard_set else 0
             if image_count > 0:
@@ -338,11 +338,91 @@ def upload_file(request):
                 messages.success(request, f'Successfully created {len(flashcards_data)} flashcards!')
             
             print(f"[SUCCESS] Flashcard generation complete: {len(flashcards_data)} cards, {image_count} with images")
+            
+            # CRITICAL: Only increment usage AFTER successful completion
+            # This ensures runtime errors don't count against user's limit
+            profile.increment_usage()
+            
             return redirect('flashcards:view_flashcards', set_id=flashcard_set.id)
-        except Exception as e:
-            messages.error(request, f'Error processing file: {str(e)}')
+        
+        except (MemoryError, RuntimeError, SystemExit, OSError, TimeoutError) as runtime_err:
+            # Runtime errors: Don't count against user's limit, clean up partial data
             import traceback
-            print(f"[ERROR] Upload error: {traceback.format_exc()}")
+            error_trace = traceback.format_exc()
+            print(f"[RUNTIME ERROR] Flashcard generation failed: {str(runtime_err)}")
+            print(f"[RUNTIME ERROR] Traceback: {error_trace}")
+            
+            # Clean up partial data
+            try:
+                if flashcard_set:
+                    # Delete flashcards first (foreign key constraint)
+                    flashcard_set.flashcards.all().delete()
+                    flashcard_set.delete()
+                    print(f"[CLEANUP] Deleted flashcard_set {flashcard_set.id} due to runtime error")
+            except Exception as cleanup_err:
+                print(f"[WARNING] Failed to cleanup flashcard_set: {str(cleanup_err)}")
+            
+            try:
+                if file_upload:
+                    file_upload.delete()
+                    print(f"[CLEANUP] Deleted file_upload {file_upload.id} due to runtime error")
+            except Exception as cleanup_err:
+                print(f"[WARNING] Failed to cleanup file_upload: {str(cleanup_err)}")
+            
+            # User-friendly error message
+            error_msg = "A system error occurred during flashcard generation. "
+            if isinstance(runtime_err, MemoryError):
+                error_msg += "The file may be too large or complex. Please try a smaller file or contact support."
+            elif isinstance(runtime_err, TimeoutError):
+                error_msg += "The operation timed out. Please try again with a smaller file."
+            elif isinstance(runtime_err, OSError):
+                error_msg += "A system error occurred. Please try again or contact support."
+            else:
+                error_msg += "Please try again or contact support if the problem persists."
+            
+            error_msg += " This attempt did not count against your free generations."
+            messages.error(request, error_msg)
+            
+            return redirect('flashcards:index')
+        
+        except Exception as e:
+            # Other errors: May or may not count (depends on when they occur)
+            # But we'll be conservative and not count them if flashcard_set wasn't fully created
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"[ERROR] Upload error: {str(e)}")
+            print(f"[ERROR] Traceback: {error_trace}")
+            
+            # Only count usage if flashcard_set was successfully created and saved
+            # This means we got far enough that the user should be charged
+            should_count = flashcard_set is not None and flashcard_set.flashcards.exists()
+            
+            if should_count:
+                # User got some flashcards, so count this attempt
+                try:
+                    profile.increment_usage()
+                    print(f"[INFO] Incremented usage count - flashcard_set was created")
+                except Exception as inc_err:
+                    print(f"[WARNING] Failed to increment usage: {str(inc_err)}")
+            else:
+                # No flashcards were created, don't count this attempt
+                print(f"[INFO] NOT incrementing usage count - no flashcard_set was created")
+                
+                # Clean up partial data
+                try:
+                    if flashcard_set:
+                        flashcard_set.flashcards.all().delete()
+                        flashcard_set.delete()
+                except Exception:
+                    pass
+                
+                try:
+                    if file_upload:
+                        file_upload.delete()
+                except Exception:
+                    pass
+            
+            messages.error(request, f'Error processing file: {str(e)}')
             return redirect('flashcards:index')
     
     return redirect('flashcards:index')
