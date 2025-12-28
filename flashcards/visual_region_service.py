@@ -522,7 +522,7 @@ class SemanticMatcher:
         try:
             # Process more regions to have a larger database of images to select from
             # Increased limit to 60 regions for better coverage and more matching options
-            MAX_SAFE_PROCESSING = 60  # Increased from 30 to 60 for larger image database
+            MAX_SAFE_PROCESSING = 50  # Increased from 30 to 50 for larger image database
             if len(regions) > MAX_SAFE_PROCESSING:
                 print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for comprehensive matching")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
@@ -743,7 +743,7 @@ class VisualRegionPipeline:
             
             # Process more regions to have a larger database of images to select from
             # Increased limit to 60 regions for better coverage and more matching options
-            MAX_SAFE_PROCESSING = 60  # Increased from 30 to 60 for larger image database
+            MAX_SAFE_PROCESSING = 50  # Increased from 30 to 50 for larger image database
             if len(regions) > MAX_SAFE_PROCESSING:
                 print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for comprehensive matching")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
