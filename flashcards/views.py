@@ -393,34 +393,37 @@ def upload_file(request):
             print(f"[ERROR] Upload error: {str(e)}")
             print(f"[ERROR] Traceback: {error_trace}")
             
-            # Only count usage if flashcard_set was successfully created and saved
+            # Only count usage if flashcard_set was successfully created and has at least one flashcard
             # This means we got far enough that the user should be charged
             should_count = flashcard_set is not None and flashcard_set.flashcards.exists()
             
             if should_count:
-                # User got some flashcards, so count this attempt
+                # User got some flashcards (even if partial), so count this attempt
                 try:
                     profile.increment_usage()
-                    print(f"[INFO] Incremented usage count - flashcard_set was created")
+                    print(f"[INFO] Incremented usage count - flashcard_set has {flashcard_set.flashcards.count()} flashcards")
                 except Exception as inc_err:
                     print(f"[WARNING] Failed to increment usage: {str(inc_err)}")
+                # Keep the partial flashcard_set - user got something
             else:
                 # No flashcards were created, don't count this attempt
-                print(f"[INFO] NOT incrementing usage count - no flashcard_set was created")
+                print(f"[INFO] NOT incrementing usage count - no flashcards were created")
                 
-                # Clean up partial data
+                # Clean up partial data since user got nothing
                 try:
                     if flashcard_set:
                         flashcard_set.flashcards.all().delete()
                         flashcard_set.delete()
-                except Exception:
-                    pass
+                        print(f"[CLEANUP] Deleted flashcard_set {flashcard_set.id} - no flashcards created")
+                except Exception as cleanup_err:
+                    print(f"[WARNING] Failed to cleanup flashcard_set: {str(cleanup_err)}")
                 
                 try:
                     if file_upload:
                         file_upload.delete()
-                except Exception:
-                    pass
+                        print(f"[CLEANUP] Deleted file_upload {file_upload.id} - no flashcards created")
+                except Exception as cleanup_err:
+                    print(f"[WARNING] Failed to cleanup file_upload: {str(cleanup_err)}")
             
             messages.error(request, f'Error processing file: {str(e)}')
             return redirect('flashcards:index')
