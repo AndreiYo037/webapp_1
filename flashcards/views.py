@@ -96,7 +96,16 @@ def upload_file(request):
             text_content = extract_text_from_file(file_path, file_upload.file_type)
             
             if not text_content or len(text_content.strip()) == 0:
-                raise Exception("File is empty or contains no extractable text content.")
+                # Provide more helpful error message based on file type
+                file_extension = file_upload.get_file_extension()
+                if file_extension == '.pdf':
+                    raise Exception("PDF file appears to be empty or contains no extractable text. This may be a scanned PDF (image-only). Try using a PDF with selectable text, or ensure OCR is properly configured.")
+                elif file_extension in ['.docx', '.doc']:
+                    raise Exception("Word document appears to be empty or contains no extractable text. Please ensure the document has text content.")
+                elif file_extension in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']:
+                    raise Exception("Image file could not be processed. Please ensure pytesseract and Tesseract OCR are installed, or try uploading a PDF/DOCX file with text content.")
+                else:
+                    raise Exception(f"File ({file_extension}) is empty or contains no extractable text content. Please ensure the file has readable text content.")
             
             # Calculate optimal number of flashcards based on content
             num_flashcards = calculate_flashcard_count(text_content)
