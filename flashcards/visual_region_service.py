@@ -73,7 +73,8 @@ class VisualRegionDetector:
             
             doc = fitz.open(file_path)
             
-            print(f"[INFO] Processing {len(doc)} pages for visual region detection...")
+            print(f"[INFO] Processing all {len(doc)} pages for visual region detection...")
+            
             for page_num in range(len(doc)):
                 page = doc[page_num]
                 
@@ -519,15 +520,9 @@ class SemanticMatcher:
             return []
         
         try:
-<<<<<<< HEAD
             # Process more regions to have a larger database of images to select from
             # Increased limit to 60 regions for better coverage and more matching options
             MAX_SAFE_PROCESSING = 60  # Increased from 30 to 60 for larger image database
-=======
-            # Optimized: Process fewer regions for faster runtime while maintaining quality
-            # Reduced from 60 to 35 for better performance (still provides good coverage)
-            MAX_SAFE_PROCESSING = 35  # Optimized for speed: balance between quality and runtime
->>>>>>> parent of 2af5513 (Increase MAX_SAFE_PROCESSING from 35 to 50 regions for better image coverage)
             if len(regions) > MAX_SAFE_PROCESSING:
                 print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for comprehensive matching")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
@@ -629,6 +624,7 @@ class SemanticMatcher:
             
             # Sort by similarity score (highest first)
             for q_idx in range(len(questions)):
+                
                 best_region_idx = -1
                 best_score = min_confidence
                 
@@ -745,15 +741,9 @@ class VisualRegionPipeline:
             
             print(f"[INFO] Detected {len(regions)} visual regions")
             
-<<<<<<< HEAD
             # Process more regions to have a larger database of images to select from
             # Increased limit to 60 regions for better coverage and more matching options
             MAX_SAFE_PROCESSING = 60  # Increased from 30 to 60 for larger image database
-=======
-            # Optimized: Process fewer regions for faster runtime while maintaining quality
-            # Reduced from 60 to 35 for better performance (still provides good coverage)
-            MAX_SAFE_PROCESSING = 35  # Optimized for speed: balance between quality and runtime
->>>>>>> parent of 2af5513 (Increase MAX_SAFE_PROCESSING from 35 to 50 regions for better image coverage)
             if len(regions) > MAX_SAFE_PROCESSING:
                 print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for comprehensive matching")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
