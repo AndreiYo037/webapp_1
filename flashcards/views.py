@@ -955,6 +955,34 @@ def account(request):
     subscriptions = Subscription.objects.filter(user=request.user).order_by('-payment_date')
     flashcard_sets_count = FlashcardSet.objects.filter(user=request.user).count()
     
+    # Handle email update
+    if request.method == 'POST' and 'update_email' in request.POST:
+        new_email = request.POST.get('email', '').strip()
+        if new_email and '@' in new_email:
+            # Check if email is already in use by another user
+            if User.objects.filter(email=new_email).exclude(id=request.user.id).exists():
+                messages.error(request, 'This email address is already in use by another account.')
+            else:
+                old_email = request.user.email
+                request.user.email = new_email
+                request.user.save()
+                
+                # Reset email verification status if email changed
+                if old_email != new_email:
+                    profile.email_verified = False
+                    profile.save()
+                    # Send verification email for new email
+                    try:
+                        send_verification_email(request.user, request)
+                        messages.success(request, f'Email updated to {new_email}. Please check your email to verify your new address.')
+                    except Exception as e:
+                        messages.warning(request, f'Email updated, but verification email could not be sent: {str(e)}')
+                else:
+                    messages.info(request, 'Email address unchanged.')
+        else:
+            messages.error(request, 'Please enter a valid email address.')
+        return redirect('flashcards:account')
+    
     return render(request, 'flashcards/account.html', {
         'profile': profile,
         'subscriptions': subscriptions,

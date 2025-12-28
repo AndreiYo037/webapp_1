@@ -76,16 +76,41 @@
         <div class="info-row">
             <span class="info-label">Email:</span>
             <span class="info-value">
-                {{ user.email|default:"Not provided" }}
                 {% if user.email %}
+                    {{ user.email }}
                     {% if profile.email_verified %}
                         <span style="color: #28a745; margin-left: 10px;">✓ Verified</span>
                     {% else %}
                         <span style="color: #dc3545; margin-left: 10px;">✗ Not Verified</span>
                         <a href="{% url 'flashcards:resend_verification' %}" style="color: #667eea; margin-left: 10px; font-size: 0.9em;">Resend Verification</a>
                     {% endif %}
+                {% else %}
+                    Not provided
                 {% endif %}
+                <button type="button" id="email-toggle-btn" onclick="toggleEmailForm()" 
+                        style="margin-left: 15px; padding: 5px 15px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                    {% if user.email %}Update Email{% else %}Add Email{% endif %}
+                </button>
             </span>
+        </div>
+        <div id="email-form" style="display: {% if not user.email %}block{% else %}none{% endif %}; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 6px;">
+            <form method="post" style="display: flex; gap: 10px; align-items: center;">
+                {% csrf_token %}
+                <input type="hidden" name="update_email" value="1">
+                <input type="email" name="email" value="{{ user.email|default:'' }}" 
+                       placeholder="Enter your email address" required
+                       style="flex: 1; padding: 10px; border: 2px solid #dee2e6; border-radius: 6px; font-size: 14px;">
+                <button type="submit" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                    Save
+                </button>
+                <button type="button" onclick="toggleEmailForm()" 
+                        style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                    Cancel
+                </button>
+            </form>
+            <p style="margin-top: 10px; color: #6c757d; font-size: 0.9em;">
+                <strong>Note:</strong> A valid email address is required to subscribe to Premium plans.
+            </p>
         </div>
         <div class="info-row">
             <span class="info-label">Account Type:</span>
@@ -193,5 +218,19 @@
         <a href="{% url 'flashcards:index' %}" class="btn btn-secondary">Back to Home</a>
     </div>
 </div>
+
+<script>
+function toggleEmailForm() {
+    var form = document.getElementById('email-form');
+    var btn = document.getElementById('email-toggle-btn');
+    if (form.style.display === 'none' || form.style.display === '') {
+        form.style.display = 'block';
+        if (btn) btn.style.display = 'none';
+    } else {
+        form.style.display = 'none';
+        if (btn) btn.style.display = 'inline-block';
+    }
+}
+</script>
 {% endblock %}
 
