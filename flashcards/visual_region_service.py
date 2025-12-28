@@ -56,7 +56,7 @@ class VisualRegionDetector:
     """Detects visual regions in PDF/Word documents"""
     
     def __init__(self):
-        self.min_region_area = 3000  # Lowered from 5000 to detect smaller visual regions
+        self.min_region_area = 2500  # Lowered from 3000 to detect even more visual regions
         self.aspect_ratio_range = (0.2, 5.0)  # More permissive aspect ratios to catch more regions
         self.max_region_area_ratio = 0.50  # Maximum 50% of page area (stricter than before)
     
