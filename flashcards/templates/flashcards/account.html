@@ -173,7 +173,8 @@
             <p style="color: #6c757d;">No subscriptions found.</p>
         {% endif %}
     </div>
-    {% else %}
+    
+    {% if not profile.is_premium %}
     <div class="account-section" style="background: #fff3cd; border: 2px solid #ffc107;">
         <h3 style="color: #856404;">Upgrade to Premium</h3>
         <p style="color: #856404; margin-bottom: 15px;">
