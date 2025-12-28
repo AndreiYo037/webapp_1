@@ -149,10 +149,7 @@ def upload_file(request):
                 try:
                     # First try: Use visual region pipeline for advanced semantic matching (for PDF/DOCX)
                     if file_extension in ['.pdf', '.docx', '.doc']:
-                        pipeline = VisualRegionPipeline()
-                        questions = [card['question'] for card in flashcards_data]
-                        
-                        # Get all detected regions BEFORE matching (we need all of them for fallback)
+                        # Get all detected regions FIRST for fallback use
                         from .visual_region_service import VisualRegionDetector
                         detector = VisualRegionDetector()
                         if file_extension == '.pdf':
@@ -164,7 +161,9 @@ def upload_file(request):
                         
                         print(f"[INFO] Detected {len(all_detected_regions)} total visual regions for potential use")
                         
-                        # Now do semantic matching
+                        # Now do semantic matching (pipeline will detect again, but that's okay for now)
+                        pipeline = VisualRegionPipeline()
+                        questions = [card['question'] for card in flashcards_data]
                         matches = pipeline.process_document(file_path, file_upload.file_type, questions)
                         
                         # Create a mapping of question index to matched region
