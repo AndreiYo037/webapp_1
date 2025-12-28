@@ -469,7 +469,13 @@ def register(request):
                     send_verification_email(user, request)
                     messages.info(request, f'Account created! Please check your email ({user.email}) to verify your account.')
                 except Exception as e:
-                    messages.warning(request, f'Account created, but verification email could not be sent: {str(e)}')
+                    error_msg = str(e)
+                    # Check if email backend is console (development mode)
+                    from django.conf import settings
+                    if 'console' in str(settings.EMAIL_BACKEND).lower():
+                        messages.warning(request, f'Account created! However, email sending is not configured. Emails are being printed to console (development mode). Please configure EMAIL_HOST, EMAIL_HOST_USER, and EMAIL_HOST_PASSWORD in Railway environment variables to send real emails.')
+                    else:
+                        messages.warning(request, f'Account created, but verification email could not be sent: {error_msg}')
             else:
                 messages.warning(request, 'Please add an email address to your account to receive verification emails.')
             
@@ -976,7 +982,13 @@ def account(request):
                         send_verification_email(request.user, request)
                         messages.success(request, f'Email updated to {new_email}. Please check your email to verify your new address.')
                     except Exception as e:
-                        messages.warning(request, f'Email updated, but verification email could not be sent: {str(e)}')
+                        error_msg = str(e)
+                        # Check if email backend is console (development mode)
+                        from django.conf import settings
+                        if 'console' in str(settings.EMAIL_BACKEND).lower():
+                            messages.warning(request, f'Email updated, but email sending is not configured. Emails are being printed to console (development mode). Please configure EMAIL_HOST, EMAIL_HOST_USER, and EMAIL_HOST_PASSWORD in Railway environment variables to send real emails.')
+                        else:
+                            messages.warning(request, f'Email updated, but verification email could not be sent: {error_msg}')
                 else:
                     messages.info(request, 'Email address unchanged.')
         else:
