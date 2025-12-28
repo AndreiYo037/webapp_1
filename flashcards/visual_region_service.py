@@ -521,9 +521,9 @@ class SemanticMatcher:
             return []
         
         try:
-            # Optimized: Process fewer regions for faster runtime while maintaining quality
-            # Reduced from 60 to 35 for better performance (still provides good coverage)
-            MAX_SAFE_PROCESSING = 35  # Optimized for speed: balance between quality and runtime
+            # Optimized: Process regions for faster runtime while maintaining quality
+            # Set to 50 for good balance between coverage and performance
+            MAX_SAFE_PROCESSING = 50  # Optimized for speed: balance between quality and runtime
             if len(regions) > MAX_SAFE_PROCESSING:
                 print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for faster matching")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
@@ -752,9 +752,9 @@ class VisualRegionPipeline:
             
             print(f"[INFO] Detected {len(regions)} visual regions")
             
-            # Optimized: Process fewer regions for faster runtime while maintaining quality
-            # Reduced from 60 to 35 for better performance (still provides good coverage)
-            MAX_SAFE_PROCESSING = 35  # Optimized for speed: balance between quality and runtime
+            # Optimized: Process regions for faster runtime while maintaining quality
+            # Set to 50 for good balance between coverage and performance
+            MAX_SAFE_PROCESSING = 50  # Optimized for speed: balance between quality and runtime
             if len(regions) > MAX_SAFE_PROCESSING:
                 print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for faster matching")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
