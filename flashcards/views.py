@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
@@ -765,9 +766,9 @@ def subscription_success(request):
     """Handle successful subscription payment"""
     session_id = request.GET.get('session_id')
     
-    if not session_id:
-        messages.error(request, 'Invalid session.')
-        return redirect('flashcards:index')
+    if not session_id or session_id == '{CHECKOUT_SESSION_ID}':
+        messages.error(request, 'Invalid session. Please try subscribing again.')
+        return redirect('flashcards:upgrade')
     
     try:
         # Retrieve the Checkout Session
