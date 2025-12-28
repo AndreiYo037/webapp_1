@@ -611,6 +611,11 @@ class SemanticMatcher:
                 print(f"[WARNING] Maximum similarity score {max(max_scores):.3f} is below threshold {min_confidence:.3f}")
                 print(f"[INFO] No images will be displayed - quality threshold not met (minimum {min_confidence*100:.0f}% similarity required)")
                 print(f"[INFO] This ensures only high-quality, well-matched images are shown to users")
+                # Log all scores for debugging
+                if len(max_scores) <= 10:
+                    print(f"[DEBUG] All similarity scores: {[f'{s:.3f}' for s in max_scores]}")
+                else:
+                    print(f"[DEBUG] Top 10 similarity scores: {[f'{s:.3f}' for s in sorted(max_scores, reverse=True)[:10]]}")
             
             # Sort by similarity score (highest first)
             for q_idx in range(len(questions)):
