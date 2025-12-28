@@ -164,9 +164,12 @@ if os.environ.get('EMAIL_HOST'):
     EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
     EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
     EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
-    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+    # Remove spaces from App Password (Gmail App Passwords sometimes have spaces)
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '').replace(' ', '')
+    print(f"[EMAIL CONFIG] SMTP configured: Host={EMAIL_HOST}, Port={EMAIL_PORT}, User={EMAIL_HOST_USER}, TLS={EMAIL_USE_TLS}")
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    print("[EMAIL CONFIG] Using console backend - EMAIL_HOST not set. Emails will be printed to logs.")
 
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@flashcardapp.com')
 SERVER_EMAIL = os.environ.get('SERVER_EMAIL', 'noreply@flashcardapp.com')
