@@ -96,7 +96,16 @@ def upload_file(request):
             text_content = extract_text_from_file(file_path, file_upload.file_type)
             
             if not text_content or len(text_content.strip()) == 0:
-                raise Exception("File is empty or contains no extractable text content.")
+                # Provide more helpful error message based on file type
+                file_extension = file_upload.get_file_extension()
+                if file_extension == '.pdf':
+                    raise Exception("PDF file appears to be empty or contains no extractable text. This may be a scanned PDF (image-only). Try using a PDF with selectable text, or ensure OCR is properly configured.")
+                elif file_extension in ['.docx', '.doc']:
+                    raise Exception("Word document appears to be empty or contains no extractable text. Please ensure the document has text content.")
+                elif file_extension in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']:
+                    raise Exception("Image file could not be processed. Please ensure pytesseract and Tesseract OCR are installed, or try uploading a PDF/DOCX file with text content.")
+                else:
+                    raise Exception(f"File ({file_extension}) is empty or contains no extractable text content. Please ensure the file has readable text content.")
             
             # Calculate optimal number of flashcards based on content
             num_flashcards = calculate_flashcard_count(text_content)
@@ -530,7 +539,7 @@ def upgrade(request):
         plans = {
             'monthly': {
                 'price_id': getattr(settings, 'STRIPE_PRICE_ID_MONTHLY', None),
-                'amount': 9.99,
+                'amount': 2.99,
                 'name': 'Premium Monthly',
                 'interval': 'month'
             }
@@ -538,12 +547,18 @@ def upgrade(request):
         
         selected_plan = plans.get(plan, plans['monthly'])
         
+        # Validate email before creating checkout session
+        user_email = request.user.email
+        if not user_email or '@' not in user_email:
+            messages.error(request, 'Please add a valid email address to your account before subscribing. Go to your account settings to update your email.')
+            return redirect('flashcards:upgrade')
+        
         if not selected_plan['price_id']:
             # Fallback: Create Checkout Session with price amount
             try:
                 # Create Stripe Checkout Session
                 checkout_session = stripe.checkout.Session.create(
-                    customer_email=request.user.email,
+                    customer_email=user_email,
                     payment_method_types=['card'],
                     line_items=[{
                         'price_data': {
@@ -576,7 +591,7 @@ def upgrade(request):
             # Use price ID if configured
             try:
                 checkout_session = stripe.checkout.Session.create(
-                    customer_email=request.user.email,
+                    customer_email=user_email,
                     payment_method_types=['card'],
                     line_items=[{
                         'price': selected_plan['price_id'],
