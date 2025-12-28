@@ -348,8 +348,9 @@ class VisualRegionDetector:
                 print(f"[DEBUG] Expanded small region from {x1-x0}x{y1-y0} to {width}x{height}")
             
             # CRITICAL: Reject regions that are still too small after expansion
-            if cropped.width < 150 or cropped.height < 100:
-                print(f"[DEBUG] Rejected region too small: {cropped.width}x{cropped.height} (minimum: 150x100)")
+            # Lowered minimum to allow more regions (must be at least 120x80px)
+            if cropped.width < 120 or cropped.height < 80:
+                print(f"[DEBUG] Rejected region too small: {cropped.width}x{cropped.height} (minimum: 120x80)")
                 return None
             
             # CRITICAL: Check if cropped region is blank/white BEFORE creating VisualRegion
@@ -551,10 +552,13 @@ class SemanticMatcher:
                     raise Exception("Failed to generate question embeddings")
                 
                 # Process regions with optimized batch size for faster runtime
-                # Use larger batches for faster processing (regions already limited to 30)
-                if len(region_texts) > 20:
+                # Use larger batches for faster processing (regions now limited to 60)
+                if len(region_texts) > 40:
+                    # For very large numbers, use medium batches
+                    region_batch_size = 10
+                elif len(region_texts) > 20:
                     # For larger numbers, use medium batches
-                    region_batch_size = 8
+                    region_batch_size = 12
                 else:
                     # For smaller numbers, use larger batches for speed
                     region_batch_size = 16
