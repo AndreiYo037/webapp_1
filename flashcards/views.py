@@ -582,8 +582,8 @@ def upgrade(request):
                         'quantity': 1,
                     }],
                     mode='subscription',
-                    success_url=request.build_absolute_uri('/subscription/success/?session_id={CHECKOUT_SESSION_ID}'),
-                    cancel_url=request.build_absolute_uri('/subscription/cancel/'),
+                    success_url=request.build_absolute_uri(reverse('flashcards:subscription_success') + '?session_id={CHECKOUT_SESSION_ID}'),
+                    cancel_url=request.build_absolute_uri(reverse('flashcards:subscription_cancel')),
                     metadata={
                         'user_id': request.user.id,
                         'plan': plan,
@@ -605,8 +605,8 @@ def upgrade(request):
                         'quantity': 1,
                     }],
                     mode='subscription',
-                    success_url=request.build_absolute_uri('/subscription/success/?session_id={CHECKOUT_SESSION_ID}'),
-                    cancel_url=request.build_absolute_uri('/subscription/cancel/'),
+                    success_url=request.build_absolute_uri(reverse('flashcards:subscription_success') + '?session_id={CHECKOUT_SESSION_ID}'),
+                    cancel_url=request.build_absolute_uri(reverse('flashcards:subscription_cancel')),
                     metadata={
                         'user_id': request.user.id,
                         'plan': plan,
