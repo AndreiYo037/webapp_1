@@ -151,10 +151,21 @@ def upload_file(request):
                     if file_extension in ['.pdf', '.docx', '.doc']:
                         pipeline = VisualRegionPipeline()
                         questions = [card['question'] for card in flashcards_data]
-                        matches = pipeline.process_document(file_path, file_upload.file_type, questions)
                         
-                        # Store all detected regions for potential fallback use
-                        all_detected_regions = [region for _, region, _ in matches if region and region.image]
+                        # Get all detected regions BEFORE matching (we need all of them for fallback)
+                        from .visual_region_service import VisualRegionDetector
+                        detector = VisualRegionDetector()
+                        if file_extension == '.pdf':
+                            all_detected_regions = detector.detect_regions_in_pdf(file_path)
+                        elif file_extension in ['.docx', '.doc']:
+                            all_detected_regions = detector.detect_regions_in_docx(file_path)
+                        else:
+                            all_detected_regions = []
+                        
+                        print(f"[INFO] Detected {len(all_detected_regions)} total visual regions for potential use")
+                        
+                        # Now do semantic matching
+                        matches = pipeline.process_document(file_path, file_upload.file_type, questions)
                         
                         # Create a mapping of question index to matched region
                         image_matches = {}
@@ -166,11 +177,12 @@ def upload_file(request):
                         if image_matches:
                             print(f"[SUCCESS] Semantic matching found {len(image_matches)} matches using visual region pipeline")
                         elif all_detected_regions:
-                            print(f"[INFO] Visual regions detected but not matched - will use regions in fallback")
+                            print(f"[INFO] {len(all_detected_regions)} visual regions detected but not matched - will use regions in fallback")
                     
-                    # Fallback/Second try: Use LLM-based image matching (works for all file types)
-                    if not image_matches or len(image_matches) < len(flashcards_data) * 0.5:
-                        print(f"[INFO] Using LLM-based image matching as {'fallback' if image_matches else 'primary'} method...")
+                    # Fallback/Second try: Use detected visual regions if we have them
+                    # Only use LLM matching with full-page images if we have NO detected regions
+                    if (not image_matches or len(image_matches) < len(flashcards_data) * 0.5) and not all_detected_regions:
+                        print(f"[INFO] No visual regions available - using LLM-based image matching with full-page images...")
                         try:
                             # Create temporary file objects for matching
                             from .file_processor import understand_image_with_vision
@@ -186,7 +198,7 @@ def upload_file(request):
                                     image_matches[idx] = SimpleRegion(images[0])
                                 print(f"[INFO] Single image file - assigned to all {len(flashcards_data)} flashcards")
                             else:
-                                # Multiple images - use LLM matching
+                                # Multiple images - use LLM matching with full-page images (last resort)
                                 # Save PIL images temporarily for vision analysis
                                 import tempfile
                                 import os
@@ -286,26 +298,31 @@ def upload_file(request):
                             # Auto-crop will identify the most relevant part within the visual region based on question
                             cropped_img = auto_crop_image_for_question(region.image, card_data['question'])
                             
-                            # Check if the region itself is too large (more than 50% of typical page)
-                            # If so, reject it even if auto-crop fails
+                            # Check if the region itself is too large
+                            # Visual regions detected by OpenCV should be <50% of page
+                            # If we get full-page images (from LLM fallback), center-crop them
                             region_width, region_height = region.image.size
                             region_area = region_width * region_height
-                            # Typical page size is around 800x1000, so 50% would be ~400,000 pixels
-                            # But we'll use a more flexible check based on the actual region
                             typical_page_area = 800 * 1000  # Reference size
-                            if region_area > typical_page_area * 0.50:
-                                print(f"[WARNING] Visual region too large ({region_width}x{region_height}, {int(region_area/typical_page_area*100)}% of typical page) - rejecting")
-                                continue  # Skip this image, don't save it
+                            is_large_region = region_area > typical_page_area * 0.50
                             
                             if not cropped_img:
-                                # If auto-crop fails or returns None, check if region is acceptable size
-                                # Only use region directly if it's reasonably sized (<50% of typical page)
-                                if region_area <= typical_page_area * 0.50:
-                                    cropped_img = region.image
-                                    print(f"[INFO] Using visual region image directly for flashcard {idx} (auto-crop not needed, region size acceptable)")
+                                # If auto-crop fails or returns None
+                                if is_large_region:
+                                    # For large regions (likely full pages from LLM fallback), center crop them
+                                    # Crop to 70% of the image centered (removes 15% from each side)
+                                    print(f"[INFO] Large region detected ({region_width}x{region_height}, {int(region_area/typical_page_area*100)}% of typical page) - applying center crop")
+                                    crop_margin = 0.15  # Crop 15% from each side (leaves 70% center)
+                                    crop_x0 = int(region_width * crop_margin)
+                                    crop_y0 = int(region_height * crop_margin)
+                                    crop_x1 = int(region_width * (1 - crop_margin))
+                                    crop_y1 = int(region_height * (1 - crop_margin))
+                                    cropped_img = region.image.crop((crop_x0, crop_y0, crop_x1, crop_y1))
+                                    print(f"[INFO] Center-cropped large region from {region_width}x{region_height} to {crop_x1-crop_x0}x{crop_y1-crop_y0}")
                                 else:
-                                    print(f"[WARNING] Visual region too large and auto-crop failed - skipping image for flashcard {idx}")
-                                    continue  # Skip this image
+                                    # Small region (detected by OpenCV), use directly
+                                    cropped_img = region.image
+                                    print(f"[INFO] Using visual region image directly for flashcard {idx} (region size: {region_width}x{region_height})")
                             else:
                                 print(f"[INFO] Further refined visual region using auto-crop for flashcard {idx}")
                             
