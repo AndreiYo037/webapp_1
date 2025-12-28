@@ -178,9 +178,10 @@ def upload_file(request):
                         elif all_detected_regions:
                             print(f"[INFO] {len(all_detected_regions)} visual regions detected but not matched - will use regions in fallback")
                     
-                    # Fallback/Second try: Use detected visual regions if we have them
-                    # Only use LLM matching with full-page images if we have NO detected regions
-                    if (not image_matches or len(image_matches) < len(flashcards_data) * 0.5) and not all_detected_regions:
+                    # STRICT: Only use fallback if we have NO matches at all
+                    # Do not use low-quality fallbacks - quality threshold must be met
+                    # Only use LLM matching with full-page images if we have NO detected regions AND NO matches
+                    if not image_matches and not all_detected_regions:
                         print(f"[INFO] No visual regions available - using LLM-based image matching with full-page images...")
                         try:
                             # Create temporary file objects for matching
@@ -251,32 +252,12 @@ def upload_file(request):
                     import traceback
                     traceback.print_exc()
                 
-                # Final fallback: Use detected visual regions if available, otherwise round-robin full pages
-                if not image_matches or len(image_matches) < len(flashcards_data):
-                    if all_detected_regions and len(all_detected_regions) > 0:
-                        # Use detected visual regions (cropped sections) in round-robin
-                        print(f"[INFO] Using detected visual regions in round-robin distribution (fallback)...")
-                        if not image_matches:
-                            image_matches = {}
-                        for idx in range(len(flashcards_data)):
-                            if idx not in image_matches:
-                                region_idx = idx % len(all_detected_regions)
-                                image_matches[idx] = all_detected_regions[region_idx]
-                        print(f"[INFO] Distributed {len(all_detected_regions)} visual regions to {len(flashcards_data)} flashcards")
-                    elif images:
-                        # Last resort: use full page images (but try to crop them)
-                        print(f"[WARNING] No visual regions detected - using full page images as last resort")
-                        print(f"[INFO] Using round-robin distribution of full pages as final fallback...")
-                        if not image_matches:
-                            image_matches = {}
-                        for idx in range(len(flashcards_data)):
-                            if idx not in image_matches:
-                                img_idx = idx % len(images)
-                                class SimpleRegion:
-                                    def __init__(self, img):
-                                        self.image = img
-                                image_matches[idx] = SimpleRegion(images[img_idx])
-                        print(f"[INFO] Distributed {len(images)} full page images to {len(flashcards_data)} flashcards using round-robin")
+                # STRICT: Do not use fallback distribution if threshold not met
+                # Quality over quantity - only display images that meet confidence threshold
+                if not image_matches:
+                    print(f"[INFO] No images matched above confidence threshold - no images will be displayed")
+                    print(f"[INFO] This ensures only high-quality, well-matched images are shown")
+                    # Do not use fallback - respect the quality threshold
             
             # Create flashcards with images
             for idx, card_data in enumerate(flashcards_data):
