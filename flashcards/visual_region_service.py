@@ -605,15 +605,12 @@ class SemanticMatcher:
                 if q_idx < 3:  # Log first few
                     print(f"[DEBUG] Question {q_idx+1} max similarity: {max_score:.3f}")
             
-            # Adjust threshold if all scores are low but above a reasonable minimum
-            # Be moderate - adjust if scores are reasonably close to threshold
-            if max_scores and max(max_scores) < min_confidence and max(max_scores) > 0.20:
-                # Only adjust if max score is within 20% of threshold (moderate)
-                adjusted_threshold = max(0.20, max(max_scores) * 0.90)  # Use 90% of max score, but not below 0.20
-                print(f"[INFO] Adjusting confidence threshold from {min_confidence} to {adjusted_threshold:.3f}")
-                min_confidence = adjusted_threshold
-            elif max_scores and max(max_scores) <= 0.20:
-                print(f"[WARNING] All similarity scores are very low (max: {max(max_scores):.3f}), no matches will be displayed")
+            # STRICT: Do not adjust threshold - require high quality matches only
+            # If scores don't meet threshold, no images will be displayed (quality over quantity)
+            if max_scores and max(max_scores) < min_confidence:
+                print(f"[WARNING] Maximum similarity score {max(max_scores):.3f} is below threshold {min_confidence:.3f}")
+                print(f"[INFO] No images will be displayed - quality threshold not met (minimum {min_confidence*100:.0f}% similarity required)")
+                print(f"[INFO] This ensures only high-quality, well-matched images are shown to users")
             
             # Sort by similarity score (highest first)
             for q_idx in range(len(questions)):
