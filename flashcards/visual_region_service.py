@@ -323,9 +323,9 @@ class VisualRegionDetector:
             cropped = page_image.crop((x0, y0, x1, y1))
             
             # CRITICAL: Enforce minimum size BEFORE checking if blank
-            # Reject regions that are too small to be useful (must be at least 200x150px)
-            min_width = 200
-            min_height = 150
+            # Lowered minimum size to detect more regions (must be at least 150x100px)
+            min_width = 150
+            min_height = 100
             if cropped.width < min_width or cropped.height < min_height:
                 # Try to expand crop to minimum size while staying within page bounds
                 center_x = (x0 + x1) // 2
@@ -519,11 +519,11 @@ class SemanticMatcher:
             return []
         
         try:
-            # Process regions with a reasonable limit to prevent timeouts and reduce runtime
-            # Limit to 30 regions for faster processing while maintaining quality
-            MAX_SAFE_PROCESSING = 30  # Reduced from 50 to 30 for faster runtime
+            # Process more regions to have a larger database of images to select from
+            # Increased limit to 60 regions for better coverage and more matching options
+            MAX_SAFE_PROCESSING = 60  # Increased from 30 to 60 for larger image database
             if len(regions) > MAX_SAFE_PROCESSING:
-                print(f"[WARNING] Large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} for faster processing")
+                print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for comprehensive matching")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
                 # Sort by confidence and take top regions for better quality
                 regions = sorted(regions, key=lambda r: r.confidence, reverse=True)[:MAX_SAFE_PROCESSING]
@@ -739,11 +739,11 @@ class VisualRegionPipeline:
             
             print(f"[INFO] Detected {len(regions)} visual regions")
             
-            # Process regions with a reasonable limit to prevent timeouts and reduce runtime
-            # Limit to 30 regions for faster processing while maintaining quality
-            MAX_SAFE_PROCESSING = 30  # Reduced from 50 to 30 for faster runtime
+            # Process more regions to have a larger database of images to select from
+            # Increased limit to 60 regions for better coverage and more matching options
+            MAX_SAFE_PROCESSING = 60  # Increased from 30 to 60 for larger image database
             if len(regions) > MAX_SAFE_PROCESSING:
-                print(f"[WARNING] Large number of regions ({len(regions)}), limiting to top {MAX_SAFE_PROCESSING} for faster processing")
+                print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for comprehensive matching")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
                 # Sort by confidence and take top regions for better quality
                 regions = sorted(regions, key=lambda r: r.confidence, reverse=True)[:MAX_SAFE_PROCESSING]
