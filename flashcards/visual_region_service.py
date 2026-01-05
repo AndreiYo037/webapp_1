@@ -775,10 +775,10 @@ class VisualRegionPipeline:
             # Try semantic matching on the (possibly limited) regions
             # Match regions to questions with comprehensive error handling
             try:
-                    # Use high confidence threshold for better quality matches
-                    # Set to 0.35 (35%) - balanced threshold that ensures quality while allowing good matches
+                    # Use balanced confidence threshold for quality matches
+                    # Set to 0.25 (25%) - more lenient threshold to display more images while maintaining reasonable quality
                     # Images below this threshold will not be displayed at all (strict enforcement)
-                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.35)
+                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.25)
             except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
                 print(f"[ERROR] Memory/runtime error during matching: {type(mem_err).__name__}: {str(mem_err)}")
                 print("[INFO] No images will be displayed - semantic matching failed")
