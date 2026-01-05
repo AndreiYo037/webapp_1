@@ -448,34 +448,51 @@ class SemanticMatcher:
         try:
             # Force garbage collection before processing
             import gc
+            import sys
             gc.collect()
             
-            # Process in batches to avoid memory issues
-            if len(texts) > batch_size:
-                print(f"[INFO] Processing {len(texts)} texts in batches of {batch_size}...")
+            # MEMORY OPTIMIZATION: Always process in batches to prevent memory spikes on Railway
+            # Use the provided batch_size (cap regions at 10, but allow questions up to 16)
+            # Questions are typically smaller in number, so can handle larger batches
+            safe_batch_size = min(batch_size, 16)  # Cap at 16 to allow questions batch size of 16
+            if len(texts) > safe_batch_size:
+                print(f"[INFO] Processing {len(texts)} texts in batches of {safe_batch_size}...")
                 embeddings_list = []
-                for i in range(0, len(texts), batch_size):
-                    batch = texts[i:i + batch_size]
+                for i in range(0, len(texts), safe_batch_size):
+                    batch = texts[i:i + safe_batch_size]
                     try:
+                        # Use even smaller internal batch size for model.encode
                         batch_embeddings = self.model.encode(
                             batch, 
                             convert_to_numpy=True, 
                             show_progress_bar=False,
-                            batch_size=min(batch_size, len(batch)),
+                            batch_size=min(2, len(batch)),  # Very small internal batch
                             normalize_embeddings=True  # Normalize to reduce memory
                         )
                         embeddings_list.append(batch_embeddings)
-                        print(f"[INFO] Processed batch {i//batch_size + 1}/{(len(texts) + batch_size - 1)//batch_size}")
+                        batch_num = i//safe_batch_size + 1
+                        total_batches = (len(texts) + safe_batch_size - 1)//safe_batch_size
+                        print(f"[INFO] Processed batch {batch_num}/{total_batches}")
                         
-                        # Force garbage collection after each batch
+                        # Aggressive memory cleanup after each batch
                         del batch_embeddings
+                        del batch
                         gc.collect()
+                        
+                        # Additional memory check - if we're running low, reduce batch size further
+                        if i > 0 and i % (safe_batch_size * 3) == 0:  # Every 3 batches
+                            # Force more aggressive cleanup
+                            gc.collect()
+                            
                     except (MemoryError, RuntimeError) as e:
-                        print(f"[ERROR] Memory error in batch {i//batch_size + 1}: {str(e)}")
+                        print(f"[ERROR] Memory error in batch {i//safe_batch_size + 1}: {str(e)}")
                         # If we have some embeddings, return what we have
                         if embeddings_list:
                             print("[WARNING] Returning partial embeddings due to memory error")
-                            return np.vstack(embeddings_list)
+                            result = np.vstack(embeddings_list)
+                            del embeddings_list
+                            gc.collect()
+                            return result
                         raise
                 
                 # Concatenate all batches
@@ -483,11 +500,12 @@ class SemanticMatcher:
                 del embeddings_list
                 gc.collect()
             else:
+                # Even for small lists, use small batch size
                 embeddings = self.model.encode(
                     texts, 
                     convert_to_numpy=True, 
                     show_progress_bar=False,
-                    batch_size=len(texts),
+                    batch_size=min(2, len(texts)),  # Very small batch even for small lists
                     normalize_embeddings=True
                 )
             return embeddings
@@ -520,11 +538,11 @@ class SemanticMatcher:
             return []
         
         try:
-            # Process more regions to have a larger database of images to select from
-            # Increased limit to 60 regions for better coverage and more matching options
-            MAX_SAFE_PROCESSING = 50  # Increased from 30 to 50 for larger image database
+            # MEMORY OPTIMIZATION: Reduce max regions to prevent OOM on Railway
+            # Reduced from 50 to 40 to stay within memory limits
+            MAX_SAFE_PROCESSING = 40  # Reduced from 50 to 40 for Railway memory constraints
             if len(regions) > MAX_SAFE_PROCESSING:
-                print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for comprehensive matching")
+                print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for memory efficiency")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
                 # Sort by confidence and take top regions for better quality
                 regions = sorted(regions, key=lambda r: r.confidence, reverse=True)[:MAX_SAFE_PROCESSING]
@@ -535,34 +553,36 @@ class SemanticMatcher:
             # No need for additional fallback - semantic matching can handle up to 50 regions
             
             # Extract text descriptions from regions using OCR
+            # MEMORY OPTIMIZATION: Process and release images immediately
             print(f"[INFO] Extracting text from {len(regions)} regions...")
             region_texts = []
+            import gc
             for idx, region in enumerate(regions):
                 text = self._extract_text_from_region(region)
                 region_texts.append(text)
+                # Release image from memory after extracting text
+                if region.image:
+                    del region.image
+                    region.image = None
                 if idx < 3:  # Log first few for debugging
                     print(f"[DEBUG] Region {idx+1} text (first 100 chars): {text[:100]}")
+                # Periodic garbage collection for large batches
+                if idx > 0 and idx % 10 == 0:
+                    gc.collect()
             
-            # Generate embeddings with very small batches and aggressive error handling
+            # Generate embeddings with optimized batches and aggressive error handling
+            # MEMORY OPTIMIZATION: Reduced batch sizes for Railway's memory constraints
             print(f"[INFO] Generating embeddings for {len(questions)} questions and {len(region_texts)} regions...")
             try:
                 # Process questions first (usually small number)
-                # Increased batch size to 16 for faster processing
+                # Keep batch size at 16 for questions
                 question_embeddings = self.generate_embeddings(questions, batch_size=16)
                 if question_embeddings is None:
                     raise Exception("Failed to generate question embeddings")
                 
-                # Process regions with optimized batch size for faster runtime
-                # Use larger batches for faster processing (regions now limited to 60)
-                if len(region_texts) > 40:
-                    # For very large numbers, use medium batches
-                    region_batch_size = 10
-                elif len(region_texts) > 20:
-                    # For larger numbers, use medium batches
-                    region_batch_size = 12
-                else:
-                    # For smaller numbers, use larger batches for speed
-                    region_batch_size = 16
+                # Process regions with MEMORY-OPTIMIZED batch size
+                # Use batch size of 10 for all regions to prevent OOM on Railway
+                region_batch_size = 10
                 
                 print(f"[INFO] Processing {len(region_texts)} regions with batch size {region_batch_size} (estimated {len(region_texts) // region_batch_size + 1} batches)")
                 region_embeddings = self.generate_embeddings(region_texts, batch_size=region_batch_size)
@@ -741,11 +761,11 @@ class VisualRegionPipeline:
             
             print(f"[INFO] Detected {len(regions)} visual regions")
             
-            # Process more regions to have a larger database of images to select from
-            # Increased limit to 60 regions for better coverage and more matching options
-            MAX_SAFE_PROCESSING = 50  # Increased from 30 to 50 for larger image database
+            # MEMORY OPTIMIZATION: Reduce max regions to prevent OOM on Railway
+            # Reduced from 50 to 40 to stay within memory limits
+            MAX_SAFE_PROCESSING = 40  # Reduced from 50 to 40 for Railway memory constraints
             if len(regions) > MAX_SAFE_PROCESSING:
-                print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for comprehensive matching")
+                print(f"[INFO] Large number of regions ({len(regions)}), processing top {MAX_SAFE_PROCESSING} for memory efficiency")
                 print(f"[INFO] Processing top {MAX_SAFE_PROCESSING} regions (sorted by confidence/quality)")
                 # Sort by confidence and take top regions for better quality
                 regions = sorted(regions, key=lambda r: r.confidence, reverse=True)[:MAX_SAFE_PROCESSING]
