@@ -158,8 +158,19 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Email Configuration
 # Use environment variables for production, console backend for development
-if os.environ.get('EMAIL_HOST'):
-    # Use custom backend with retry logic for better Railway compatibility
+# Email Configuration Priority:
+# 1. Resend (recommended for Railway - uses API, no SMTP needed)
+# 2. SMTP (Gmail, SendGrid, etc. - may be blocked on Railway)
+# 3. Console (development only)
+
+if os.environ.get('RESEND_API_KEY'):
+    # Use Resend API backend (recommended for Railway)
+    EMAIL_BACKEND = 'flashcards.resend_backend.ResendEmailBackend'
+    RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
+    print(f"[EMAIL CONFIG] Using Resend API backend (recommended for Railway)")
+    # DEFAULT_FROM_EMAIL will be set below - use your verified Resend domain email
+elif os.environ.get('EMAIL_HOST'):
+    # Use custom SMTP backend with retry logic (may be blocked on Railway)
     EMAIL_BACKEND = 'flashcards.email_backend.RetrySMTPEmailBackend'
     EMAIL_HOST = os.environ.get('EMAIL_HOST')
     EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
@@ -175,12 +186,16 @@ if os.environ.get('EMAIL_HOST'):
     EMAIL_RETRY_DELAY = int(os.environ.get('EMAIL_RETRY_DELAY', 2))
     print(f"[EMAIL CONFIG] SMTP configured: Host={EMAIL_HOST}, Port={EMAIL_PORT}, User={EMAIL_HOST_USER}, TLS={EMAIL_USE_TLS}")
     print(f"[EMAIL CONFIG] Timeout={EMAIL_TIMEOUT}s, MaxRetries={EMAIL_MAX_RETRIES}, RetryDelay={EMAIL_RETRY_DELAY}s")
+    print(f"[EMAIL WARNING] SMTP may be blocked on Railway. Consider using Resend (set RESEND_API_KEY instead).")
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-    print("[EMAIL CONFIG] Using console backend - EMAIL_HOST not set. Emails will be printed to logs.")
+    print("[EMAIL CONFIG] Using console backend - RESEND_API_KEY or EMAIL_HOST not set. Emails will be printed to logs.")
 
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@flashcardapp.com')
-SERVER_EMAIL = os.environ.get('SERVER_EMAIL', 'noreply@flashcardapp.com')
+# DEFAULT_FROM_EMAIL: For Resend, use your verified domain (e.g., noreply@yourdomain.com)
+# For testing, you can use onboarding@resend.dev (Resend's test domain)
+# For SMTP, use your email address
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev' if os.environ.get('RESEND_API_KEY') else 'noreply@flashcardapp.com')
+SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
 
 # Payment Gateway Configuration (Stripe)
 STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY', '')
