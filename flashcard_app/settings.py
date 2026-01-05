@@ -159,14 +159,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Email Configuration
 # Use environment variables for production, console backend for development
 if os.environ.get('EMAIL_HOST'):
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    # Use custom backend with retry logic for better Railway compatibility
+    EMAIL_BACKEND = 'flashcards.email_backend.RetrySMTPEmailBackend'
     EMAIL_HOST = os.environ.get('EMAIL_HOST')
     EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
     EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
     EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
     # Remove spaces from App Password (Gmail App Passwords sometimes have spaces)
     EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '').replace(' ', '')
+    # Connection timeout in seconds (default 30)
+    EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', 30))
+    # Number of retry attempts (default 3)
+    EMAIL_MAX_RETRIES = int(os.environ.get('EMAIL_MAX_RETRIES', 3))
+    # Delay between retries in seconds (default 2)
+    EMAIL_RETRY_DELAY = int(os.environ.get('EMAIL_RETRY_DELAY', 2))
     print(f"[EMAIL CONFIG] SMTP configured: Host={EMAIL_HOST}, Port={EMAIL_PORT}, User={EMAIL_HOST_USER}, TLS={EMAIL_USE_TLS}")
+    print(f"[EMAIL CONFIG] Timeout={EMAIL_TIMEOUT}s, MaxRetries={EMAIL_MAX_RETRIES}, RetryDelay={EMAIL_RETRY_DELAY}s")
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
     print("[EMAIL CONFIG] Using console backend - EMAIL_HOST not set. Emails will be printed to logs.")
