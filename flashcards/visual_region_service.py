@@ -553,17 +553,14 @@ class SemanticMatcher:
             # No need for additional fallback - semantic matching can handle up to 50 regions
             
             # Extract text descriptions from regions using OCR
-            # MEMORY OPTIMIZATION: Process and release images immediately
+            # MEMORY OPTIMIZATION: Keep images for matched regions, release others after matching
             print(f"[INFO] Extracting text from {len(regions)} regions...")
             region_texts = []
             import gc
+            # Extract text but keep images for now (we'll delete unmatched ones later)
             for idx, region in enumerate(regions):
                 text = self._extract_text_from_region(region)
                 region_texts.append(text)
-                # Release image from memory after extracting text
-                if region.image:
-                    del region.image
-                    region.image = None
                 if idx < 3:  # Log first few for debugging
                     print(f"[DEBUG] Region {idx+1} text (first 100 chars): {text[:100]}")
                 # Periodic garbage collection for large batches
@@ -661,6 +658,16 @@ class SemanticMatcher:
                     matches.append((q_idx, best_region_idx, best_score))
                     used_regions.add(best_region_idx)
                     print(f"[DEBUG] Matched question {q_idx+1} to region {best_region_idx+1} (score: {best_score:.3f})")
+            
+            # MEMORY OPTIMIZATION: Release images for unmatched regions only
+            # Keep images for matched regions so they can be displayed
+            matched_region_indices = {r_idx for _, r_idx, _ in matches}
+            for idx, region in enumerate(regions):
+                if idx not in matched_region_indices and region.image:
+                    # Release image from memory for unmatched regions
+                    del region.image
+                    region.image = None
+            gc.collect()
             
             if not matches:
                 print(f"[WARNING] No matches found above threshold {min_confidence}")
@@ -776,9 +783,9 @@ class VisualRegionPipeline:
             # Match regions to questions with comprehensive error handling
             try:
                     # Use balanced confidence threshold for quality matches
-                    # Set to 0.25 (25%) - more lenient threshold to display more images while maintaining reasonable quality
+                    # Set to 0.40 (40%) - balanced threshold that ensures quality while allowing good matches
                     # Images below this threshold will not be displayed at all (strict enforcement)
-                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.25)
+                    matches = self.matcher.match_regions_to_questions(regions, questions, min_confidence=0.40)
             except (MemoryError, RuntimeError, SystemExit, OSError) as mem_err:
                 print(f"[ERROR] Memory/runtime error during matching: {type(mem_err).__name__}: {str(mem_err)}")
                 print("[INFO] No images will be displayed - semantic matching failed")
