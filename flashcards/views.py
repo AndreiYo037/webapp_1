@@ -774,7 +774,10 @@ def subscription_success(request):
         return redirect('flashcards:account')
     
     if not session_id or session_id == '{CHECKOUT_SESSION_ID}':
-        # Check if user has any active subscription (might have been created by webhook)
+        # Session ID is missing or placeholder - try to find subscription via Stripe API
+        print(f"[SUBSCRIPTION] Missing session_id for user {request.user.id}, querying Stripe directly...")
+        
+        # First check if subscription was already created by webhook
         active_subscription = Subscription.objects.filter(
             user=request.user,
             is_active=True,
@@ -788,8 +791,67 @@ def subscription_success(request):
             messages.success(request, 'Thank you for subscribing! You now have unlimited flashcard generations.')
             return redirect('flashcards:account')
         
-        messages.error(request, 'Invalid session. Please try subscribing again. If you completed payment, your subscription may be processing - please wait a moment and refresh.')
-        return redirect('flashcards:upgrade')
+        # If no subscription found, query Stripe for recent checkout sessions
+        if STRIPE_AVAILABLE:
+            try:
+                # List recent checkout sessions for this user's email
+                user_email = request.user.email
+                if user_email:
+                    # Get recent checkout sessions (last 10, sorted by created date)
+                    checkout_sessions = stripe.checkout.Session.list(
+                        limit=10,
+                        expand=['data.subscription']
+                    )
+                    
+                    # Find a paid session with this user's email or metadata
+                    for session in checkout_sessions.data:
+                        session_user_id = session.metadata.get('user_id') if session.metadata else None
+                        if (session.payment_status == 'paid' and 
+                            session.mode == 'subscription' and
+                            (str(session_user_id) == str(request.user.id) or 
+                             session.customer_email == user_email)):
+                            
+                            print(f"[SUBSCRIPTION] Found paid session {session.id} for user {request.user.id}")
+                            
+                            # Create subscription from this session
+                            stripe_subscription_id = session.subscription
+                            if stripe_subscription_id:
+                                subscription, created = Subscription.objects.get_or_create(
+                                    stripe_subscription_id=stripe_subscription_id,
+                                    defaults={
+                                        'user': request.user,
+                                        'plan_name': 'premium',
+                                        'amount_paid': session.amount_total / 100 if session.amount_total else 2.99,
+                                        'expires_at': timezone.now() + timedelta(days=30),
+                                        'is_active': True,
+                                        'status': 'active',
+                                        'auto_renew': True,
+                                        'payment_id': session.payment_intent,
+                                    }
+                                )
+                                
+                                if not created:
+                                    subscription.is_active = True
+                                    subscription.status = 'active'
+                                    subscription.auto_renew = True
+                                    subscription.save()
+                                
+                                # Update user profile
+                                profile.is_premium = True
+                                profile.premium_expires_at = subscription.expires_at
+                                profile.save()
+                                
+                                messages.success(request, 'Thank you for subscribing! You now have unlimited flashcard generations.')
+                                return redirect('flashcards:account')
+                            
+                            break
+            except Exception as stripe_query_err:
+                print(f"[SUBSCRIPTION ERROR] Failed to query Stripe for sessions: {str(stripe_query_err)}")
+                import traceback
+                traceback.print_exc()
+        
+        messages.warning(request, 'Payment received but subscription is still processing. This usually completes within a few seconds. Please wait a moment and refresh this page, or check your account page.')
+        return redirect('flashcards:account')
     
     try:
         # Retrieve the Checkout Session
@@ -908,44 +970,55 @@ def payment_webhook(request):
         # Handle the event
         if event.type == 'checkout.session.completed':
             session = event.data.object
+            print(f"[WEBHOOK] Received checkout.session.completed for session {getattr(session, 'id', 'unknown')}")
             # Create subscription from webhook (more reliable than redirect)
             try:
                 if session.payment_status == 'paid' and session.mode == 'subscription':
                     stripe_subscription_id = session.subscription
-                    user_id = int(session.metadata.get('user_id', 0))
+                    user_id = int(session.metadata.get('user_id', 0)) if hasattr(session, 'metadata') and session.metadata else 0
+                    
+                    print(f"[WEBHOOK] Processing subscription {stripe_subscription_id} for user_id {user_id}")
                     
                     if user_id > 0:
-                        user = User.objects.get(id=user_id)
-                        
-                        # Check if subscription already exists
-                        subscription, created = Subscription.objects.get_or_create(
-                            stripe_subscription_id=stripe_subscription_id,
-                            defaults={
-                                'user': user,
-                                'plan_name': 'premium',
-                                'amount_paid': session.amount_total / 100 if session.amount_total else 2.99,
-                                'expires_at': timezone.now() + timedelta(days=30),
-                                'is_active': True,
-                                'status': 'active',
-                                'auto_renew': True,
-                                'payment_id': session.payment_intent,
-                            }
-                        )
-                        
-                        if not created:
-                            # Update existing subscription
-                            subscription.is_active = True
-                            subscription.status = 'active'
-                            subscription.save()
-                        
-                        # Update user profile
-                        profile, _ = UserProfile.objects.get_or_create(user=user)
-                        profile.is_premium = True
-                        if hasattr(subscription, 'expires_at'):
-                            profile.premium_expires_at = subscription.expires_at
-                        profile.save()
-                        
-                        print(f"[WEBHOOK] Subscription created/updated for user {user.username} via checkout.session.completed")
+                        try:
+                            user = User.objects.get(id=user_id)
+                            
+                            # Check if subscription already exists
+                            subscription, created = Subscription.objects.get_or_create(
+                                stripe_subscription_id=stripe_subscription_id,
+                                defaults={
+                                    'user': user,
+                                    'plan_name': 'premium',
+                                    'amount_paid': session.amount_total / 100 if session.amount_total else 2.99,
+                                    'expires_at': timezone.now() + timedelta(days=30),
+                                    'is_active': True,
+                                    'status': 'active',
+                                    'auto_renew': True,
+                                    'payment_id': session.payment_intent,
+                                }
+                            )
+                            
+                            if not created:
+                                # Update existing subscription
+                                subscription.is_active = True
+                                subscription.status = 'active'
+                                subscription.save()
+                                print(f"[WEBHOOK] Updated existing subscription {subscription.id}")
+                            else:
+                                print(f"[WEBHOOK] Created new subscription {subscription.id}")
+                            
+                            # Update user profile
+                            profile, _ = UserProfile.objects.get_or_create(user=user)
+                            profile.is_premium = True
+                            if hasattr(subscription, 'expires_at'):
+                                profile.premium_expires_at = subscription.expires_at
+                            profile.save()
+                            
+                            print(f"[WEBHOOK SUCCESS] Subscription activated for user {user.username} (user_id: {user_id})")
+                        except User.DoesNotExist:
+                            print(f"[WEBHOOK ERROR] User with id {user_id} not found")
+                    else:
+                        print(f"[WEBHOOK ERROR] No user_id in session metadata: {getattr(session, 'metadata', {})}")
             except Exception as webhook_err:
                 print(f"[WEBHOOK ERROR] Failed to process checkout.session.completed: {str(webhook_err)}")
                 import traceback
