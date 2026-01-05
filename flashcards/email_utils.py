@@ -14,36 +14,51 @@ def send_verification_email(user, request):
     email_host = getattr(settings, 'EMAIL_HOST', '')
     email_user = getattr(settings, 'EMAIL_HOST_USER', '')
     email_password = getattr(settings, 'EMAIL_HOST_PASSWORD', '')
+    resend_api_key = getattr(settings, 'RESEND_API_KEY', None)
     
     print(f"[EMAIL] Attempting to send verification email to {user.email}")
     print(f"[EMAIL] Backend: {email_backend}")
-    print(f"[EMAIL] Host: {email_host}")
-    print(f"[EMAIL] User: {email_user}")
-    print(f"[EMAIL] Password configured: {bool(email_password)}")
     
-    if 'console' in str(email_backend).lower():
-        print("[EMAIL WARNING] Using console backend - emails will not be sent, only printed to logs")
-        print("[EMAIL WARNING] Set EMAIL_HOST environment variable to enable SMTP")
-        raise Exception("Email backend is set to console. Configure EMAIL_HOST in Railway to send real emails.")
+    # Check if using Resend (API-based, no SMTP needed)
+    is_resend = 'resend' in str(email_backend).lower() or resend_api_key is not None
     
-    if not email_host:
-        raise Exception("EMAIL_HOST is not configured. Please set EMAIL_HOST=smtp.gmail.com in Railway environment variables.")
-    
-    if not email_password:
-        raise Exception("EMAIL_HOST_PASSWORD is not configured. Please set EMAIL_HOST_PASSWORD (Gmail App Password) in Railway environment variables.")
+    if is_resend:
+        print(f"[EMAIL] Using Resend API backend")
+        if not resend_api_key:
+            raise Exception("RESEND_API_KEY is not configured. Please set RESEND_API_KEY in Railway environment variables.")
+    else:
+        # SMTP configuration checks
+        print(f"[EMAIL] Host: {email_host}")
+        print(f"[EMAIL] User: {email_user}")
+        print(f"[EMAIL] Password configured: {bool(email_password)}")
+        
+        if 'console' in str(email_backend).lower():
+            print("[EMAIL WARNING] Using console backend - emails will not be sent, only printed to logs")
+            print("[EMAIL WARNING] Set RESEND_API_KEY or EMAIL_HOST environment variable to enable email sending")
+            raise Exception("Email backend is set to console. Configure RESEND_API_KEY (recommended) or EMAIL_HOST in Railway to send real emails.")
+        
+        if not email_host:
+            raise Exception("EMAIL_HOST is not configured. Please set EMAIL_HOST=smtp.gmail.com in Railway environment variables, or use RESEND_API_KEY for Resend (recommended for Railway).")
+        
+        if not email_password:
+            raise Exception("EMAIL_HOST_PASSWORD is not configured. Please set EMAIL_HOST_PASSWORD (Gmail App Password) in Railway environment variables, or use RESEND_API_KEY for Resend (recommended for Railway).")
     
     if not user.email:
         raise Exception("User email address is not set.")
     
-    # For Gmail, FROM email must match authenticated user email
-    # Use EMAIL_HOST_USER as FROM if DEFAULT_FROM_EMAIL is not explicitly set or is default
+    # Get FROM email
     from_email = settings.DEFAULT_FROM_EMAIL
-    if email_host == 'smtp.gmail.com' and (not from_email or from_email == 'noreply@flashcardapp.com'):
+    
+    # For Gmail SMTP, FROM email must match authenticated user email
+    if not is_resend and email_host == 'smtp.gmail.com' and (not from_email or from_email == 'noreply@flashcardapp.com'):
         from_email = email_user
         print(f"[EMAIL] Using EMAIL_HOST_USER ({email_user}) as FROM address for Gmail")
     
     if not from_email:
-        raise Exception("DEFAULT_FROM_EMAIL is not configured. Please set DEFAULT_FROM_EMAIL in Railway environment variables, or it will default to EMAIL_HOST_USER for Gmail.")
+        if is_resend:
+            raise Exception("DEFAULT_FROM_EMAIL is not configured. Please set DEFAULT_FROM_EMAIL in Railway environment variables (e.g., onboarding@resend.dev for testing).")
+        else:
+            raise Exception("DEFAULT_FROM_EMAIL is not configured. Please set DEFAULT_FROM_EMAIL in Railway environment variables, or it will default to EMAIL_HOST_USER for Gmail.")
     
     # Generate verification token
     token_obj = EmailVerificationToken.generate_token(user)
@@ -64,7 +79,11 @@ def send_verification_email(user, request):
     
     # Send email with detailed error handling and timeout protection
     try:
-        print(f"[EMAIL] Sending email via SMTP to {user.email} from {from_email}...")
+        if is_resend:
+            print(f"[EMAIL] Sending email via Resend API to {user.email} from {from_email}...")
+        else:
+            print(f"[EMAIL] Sending email via SMTP to {user.email} from {from_email}...")
+        
         send_mail(
             subject='Verify Your Email - Flashcard App',
             message=plain_message,
@@ -99,9 +118,16 @@ def send_verification_email(user, request):
 def send_password_reset_email(user, reset_token, request):
     """Send password reset link to user"""
     # Check email configuration
+    email_backend = getattr(settings, 'EMAIL_BACKEND', '')
     email_host = getattr(settings, 'EMAIL_HOST', '')
-    if not email_host:
-        raise Exception("EMAIL_HOST is not configured. Please set EMAIL_HOST in Railway environment variables.")
+    resend_api_key = getattr(settings, 'RESEND_API_KEY', None)
+    
+    # Check if using Resend (API-based, no SMTP needed)
+    is_resend = 'resend' in str(email_backend).lower() or resend_api_key is not None
+    
+    if not is_resend:
+        if not email_host:
+            raise Exception("EMAIL_HOST is not configured. Please set EMAIL_HOST in Railway environment variables, or use RESEND_API_KEY for Resend (recommended for Railway).")
     
     # reset_token is already in format "uid/token"
     reset_url = request.build_absolute_uri(
