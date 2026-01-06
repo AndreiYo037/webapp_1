@@ -228,3 +228,8 @@ USE_LLM = os.environ.get('USE_LLM', 'true').lower() in ('true', '1', 'yes', 'on'
 # Semantic Matching Configuration
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
 
+# Authentication Settings
+# Set LOGIN_URL to match the app's login URL pattern
+LOGIN_URL = '/login/'  # Django defaults to '/accounts/login/' but this app uses '/login/'
+LOGIN_REDIRECT_URL = '/'  # Where to redirect after successful login
+

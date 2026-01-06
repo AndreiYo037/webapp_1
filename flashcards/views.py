@@ -625,9 +625,8 @@ def upgrade(request):
     })
 
 
-@login_required
 def verify_email(request, token):
-    """Verify user email with token"""
+    """Verify user email with token - no login required"""
     try:
         token_obj = EmailVerificationToken.objects.get(token=token, is_used=False)
         if token_obj.is_valid():
@@ -638,13 +637,18 @@ def verify_email(request, token):
             profile.email_verified = True
             profile.save()
             
-            messages.success(request, 'Email verified successfully!')
+            # Auto-login the user after successful verification
+            user = token_obj.user
+            login(request, user)
+            
+            messages.success(request, 'Email verified successfully! You have been logged in.')
+            return redirect('flashcards:account')
         else:
             messages.error(request, 'Verification token has expired. Please request a new one.')
+            return redirect('flashcards:login')
     except EmailVerificationToken.DoesNotExist:
         messages.error(request, 'Invalid verification token.')
-    
-    return redirect('flashcards:account')
+        return redirect('flashcards:login')
 
 
 @login_required
